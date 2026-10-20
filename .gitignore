@@ -7,3 +7,5 @@ data/raw/*
 !data/raw/.gitkeep
 models/
 .DS_Store
+demo/*.mp4
+demo/frames/
