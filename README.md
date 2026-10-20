@@ -24,7 +24,7 @@ A prediction is worth nothing if it arrives after the last day you could have ac
 ```bash
 python3 -m venv .venv && source .venv/bin/activate     # Python 3.11 or newer
 pip install -r requirements.txt
-python -m flightline.seed                              # ~45 s: scenario, model, metrics
+python -m flightline.seed                              # about a minute: scenario, model, metrics
 uvicorn flightline.api:app --reload
 ```
 

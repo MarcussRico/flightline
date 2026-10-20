@@ -570,9 +570,12 @@ async function send() {
     if (my === seq) $("#solve").innerHTML = '<span class="err">Could not re-solve: ' + esc(e.message) + "</span>";
   }
 }
-$("#delay").addEventListener("input", (e) => { scenario.spares_delay_days = +e.target.value; syncControls(); push(); });
-$("#surge").addEventListener("input", (e) => { scenario.sortie_surge = +e.target.value; syncControls(); push(); });
-$("#reset").addEventListener("click", () => { scenario.ground_tails = []; scenario.spares_delay_days = 0; scenario.sortie_surge = 0; syncControls(); push(); });
+// Labels follow the thumb; the re-solve happens once, on release.
+for (const [id, key] of [["#delay", "spares_delay_days"], ["#surge", "sortie_surge"]]) {
+  $(id).addEventListener("input", (e) => { scenario[key] = +e.target.value; syncControls(); });
+  $(id).addEventListener("change", (e) => { scenario[key] = +e.target.value; syncControls(); push(); });
+}
+$("#reset").addEventListener("click", () => { cannPinned = false; scenario.ground_tails = []; scenario.spares_delay_days = 0; scenario.sortie_surge = 0; syncControls(); push(); });
 document.querySelectorAll(".seg button").forEach((b) => b.addEventListener("click", () => {
   view = b.dataset.view;
   document.querySelectorAll(".seg button").forEach((x) => x.setAttribute("aria-pressed", x === b));
@@ -730,8 +733,8 @@ function renderAttribution() {
   }
   html += `<div class="wf-row total"><div class="wf-name">Achieved Ao</div><div class="wf-track"><div class="wf-mark" style="left:${X(r.ao)}"></div></div><div class="wf-v">${pct(r.ao)}<small>${r.aircraft_days_available} of ${total}</small></div></div>`;
   const ticks = [];
-  const span = hi - lo;
-  const step = span > 24 ? 10 : span > 10 ? (window.innerWidth < 600 ? 5 : 2) : (window.innerWidth < 600 ? 2 : 1);
+  const span = hi - lo, maxTicks = window.innerWidth < 600 ? 4 : 6;
+  const step = [1, 2, 5, 10, 20].find((st) => span / st <= maxTicks) || 20;
   for (let v = Math.ceil(lo / step) * step; v <= hi; v += step) ticks.push(`<span style="left:${100 * (v - lo) / (hi - lo)}%">${v}%</span>`);
   html += `<div class="wf-axis"><div></div><div class="ax">${ticks.join("")}</div><div></div></div>`;
   $("#wf").innerHTML = html;
@@ -768,7 +771,7 @@ $("#actions").addEventListener("click", (e) => {
 });
 
 // ---------- cannibalisation ----------
-let cannSel = null;
+let cannSel = null, cannPinned = false;  // pinned once someone picks a swap by hand
 function cannHTML(c) {
   const net = c.net_aircraft_days;
   const gain = c.aircraft_gained_now ? `+1 aircraft in ${c.swap_days} day${c.swap_days > 1 ? "s" : ""}` : "No aircraft gained";
@@ -792,14 +795,15 @@ function renderCann() {
   const box = $("#cann");
   if (!cs.length) { box.innerHTML = `<p class="cann-verdict">No aircraft is waiting on a part today in this scenario, so there is nothing to cannibalise. Ground fewer aircraft or reset the scenario.</p>`; return; }
   const recips = [...new Set(cs.map((c) => c.recipient + "|" + c.part))];
-  if (!cannSel || !cs.some((c) => c.recipient === cannSel.recipient && c.donor === cannSel.donor && c.part === cannSel.part)) cannSel = cs[0];
+  // Keep the same swap selected across scenarios, but always show this scenario's price for it.
+  cannSel = (cannPinned && cannSel && cs.find((c) => c.recipient === cannSel.recipient && c.donor === cannSel.donor && c.part === cannSel.part)) || cs[0];
   const donors = cs.filter((c) => c.recipient === cannSel.recipient && c.part === cannSel.part);
   box.innerHTML = `<div class="cann-pick"><div><label for="c-rec">Waiting aircraft</label><select id="c-rec">${recips.map((r) => { const [t, p] = r.split("|"); return `<option value="${r}" ${t === cannSel.recipient && p === cannSel.part ? "selected" : ""}>${t} · ${esc(SHORT[p] || p)}</option>`; }).join("")}</select></div>` +
     `<div><label for="c-don">Donor</label><select id="c-don">${donors.map((c) => `<option value="${c.donor}" ${c.donor === cannSel.donor ? "selected" : ""}>${c.donor} · ${sgn(c.net_aircraft_days, 1)}</option>`).join("")}</select></div>` +
     `</div>` +
     `<div id="cann-body">${cannHTML(cannSel)}</div>`;
-  $("#c-rec").addEventListener("change", (e) => { const [t, p] = e.target.value.split("|"); cannSel = cs.find((c) => c.recipient === t && c.part === p); renderCann(); });
-  $("#c-don").addEventListener("change", (e) => { cannSel = donors.find((c) => c.donor === e.target.value); renderCann(); });
+  $("#c-rec").addEventListener("change", (e) => { const [t, p] = e.target.value.split("|"); cannSel = cs.find((c) => c.recipient === t && c.part === p); cannPinned = true; renderCann(); });
+  $("#c-don").addEventListener("change", (e) => { cannSel = donors.find((c) => c.donor === e.target.value); cannPinned = true; renderCann(); });
 }
 
 // ---------- abstention gate ----------
