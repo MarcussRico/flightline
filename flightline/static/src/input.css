@@ -52,9 +52,9 @@
   .delta { @apply inline-flex items-center rounded-md px-1.5 py-0.5 text-[12px] font-medium; }
   .delta-up { color: rgb(var(--plan)); background: rgb(var(--plan) / 0.09); }
   .tbl { @apply w-full text-[13px]; }
-  .tbl th { @apply text-left font-medium text-fg-3 text-[12px] px-3 py-2 border-b border-line whitespace-nowrap bg-subtle/60; }
-  .tbl td { @apply px-3 py-2.5 border-b border-line text-fg-2 whitespace-nowrap; }
-  .tbl tr:last-child td { @apply border-b-0; }
+  :where(.tbl) th { @apply text-left font-medium text-fg-3 text-[12px] px-3 py-2 border-b border-line whitespace-nowrap bg-subtle/60; }
+  :where(.tbl) td { @apply px-3 py-2.5 border-b border-line text-fg-2 whitespace-nowrap; }
+  :where(.tbl) tr:last-child td { @apply border-b-0; }
   .num { @apply text-right tabular-nums; }
 
   /* line board */
