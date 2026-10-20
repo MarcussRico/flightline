@@ -40,7 +40,7 @@ class CannIn(BaseModel):
 
 def _payload(st: engine.ScenarioState, started: float) -> dict:
     out = st.state_json()
-    out["actions"] = [{k: v for k, v in a.items() if k != "trace"} for a in st.actions]
+    out["actions"] = st.actions
     out["response_ms"] = round((time.perf_counter() - started) * 1000, 1)
     return out
 

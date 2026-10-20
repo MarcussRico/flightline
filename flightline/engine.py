@@ -168,7 +168,7 @@ class ScenarioState:
                 "refail_downtime_days": downtime,
             },
             "assumptions": [
-                f"Swap labour = {config.CANN_LABOUR_MULTIPLIER:g}x a normal repair (GAO-01-587).",
+                f"Swap labour = {config.CANN_LABOUR_MULTIPLIER:g}x a normal repair (GAO-02-86).",
                 f"Moved part loses {config.HANDLING_LIFE_PENALTY:.0%} of remaining life (modelled assumption).",
                 "Donor takes the recipient's place in the spares queue.",
             ],
@@ -344,12 +344,27 @@ def _compute(ctx: Context, sc: Scenario) -> ScenarioState:
     timings["simulate"] = time.perf_counter() - t0
 
     t1 = time.perf_counter()
-    cp = optimise(w, sc, reference.demand, non_depot_down(reference), options, hint=greedy)
+    # The optimiser sees the rest of the fleet's downtime through a reference
+    # projection, which itself depends on the schedule. So solve once against
+    # current practice, then once more against the first plan's own
+    # projection, and keep whichever plan the simulator scores higher.
+    best = None
+    ref, hint = reference, greedy
+    for _ in range(2):
+        cp = optimise(w, sc, ref.demand, non_depot_down(ref), options, hint=hint)
+        pdef = Plan("FLIGHTLINE plan", cp["inductions"], "priced", expedite_keys=frozenset(cp["expedite_keys"]))
+        res = sim(pdef)
+        score = (int(sum(res.delivered[x].sum() for x in w.bases)), int(res.up.sum()))
+        if best is None or score > best[0]:
+            best = (score, cp, pdef, res)
+        hint = cp["inductions"]
+        ref = sim(Plan("Reference", hint, "priced", expedite_keys=frozenset()))
+        options = expedite_options(w, ref)
+    _, cp, plan_def, plan = best
+    cp, plan_def, plan = tidy_late_inductions(w, cp, plan_def, plan, sim)
     timings["optimise"] = time.perf_counter() - t1
 
     t2 = time.perf_counter()
-    plan_def = Plan("FLIGHTLINE plan", cp["inductions"], "priced", expedite_keys=frozenset(cp["expedite_keys"]))
-    plan = sim(plan_def)
     nocann = sim(replace(plan_def, name="Plan without cannibalisation", cann_policy="off"))
     util = utilisation(w, sc)
     st = ScenarioState(ctx, sc, baseline, plan, nocann, cp, util, {}, Twin(w, plan, ctx.intervals, ctx.deg.installed_age))
@@ -362,6 +377,44 @@ def _compute(ctx: Context, sc: Scenario) -> ScenarioState:
     timings["total"] = time.perf_counter() - t0
     st.timings = timings
     return st
+
+
+def _late_days(w: World, inductions: dict) -> int:
+    return sum(max(0, min(s, w.horizon) - w.inspections[t].due_day) for t, (s, _) in inductions.items())
+
+
+def _score(w: World, res: SimResult, inductions: dict) -> tuple[int, int, int]:
+    """Sortie-days, then aircraft-days, then fewest inspection days overdue."""
+    return (int(sum(res.delivered[x].sum() for x in w.bases)), int(res.up.sum()), -_late_days(w, inductions))
+
+
+def tidy_late_inductions(w: World, cp: dict, plan_def: Plan, plan: SimResult, sim):
+    """Pull overdue inductions back toward their due date wherever a bay is free and the simulator agrees.
+
+    The optimiser can be indifferent to an overdue inspection on an aircraft it
+    believes is down anyway; an engineering officer is not. A move is kept only
+    if sortie-days and aircraft-days do not fall.
+    """
+    inductions = dict(cp["inductions"])
+    best = _score(w, plan, inductions)
+    late = sorted((w.inspections[t].due_day, t) for t, (s, _) in inductions.items() if s > w.inspections[t].due_day)
+    for due, tail in late:
+        start = inductions[tail][0]
+        moved = False
+        for s in range(due, min(start, w.horizon)):
+            for d in sorted(w.depots):
+                trial = {**inductions, tail: (s, d)}
+                if bay_violations(w, trial):
+                    continue
+                pdef = replace(plan_def, inductions=trial)
+                res = sim(pdef)
+                score = _score(w, res, trial)
+                if score[:2] >= best[:2] and score > best:
+                    inductions, best, plan_def, plan, moved = trial, score, pdef, res, True
+                    break
+            if moved:
+                break
+    return {**cp, "inductions": inductions}, plan_def, plan
 
 
 def expedite_options(w: World, reference: SimResult) -> list[dict]:
@@ -484,11 +537,11 @@ def build_actions(st: ScenarioState, greedy: dict, plan_def: Plan, sim) -> list[
               f"{ad:+d} aircraft-days, {sd:+d} sortie-days."},
              {"silo": "assumption", "text": f"Swap labour {config.CANN_LABOUR_MULTIPLIER:g}x a normal repair; moved part "
               f"loses {config.HANDLING_LIFE_PENALTY:.0%} of remaining life (modelled)."}]))
+    swapped: set[str] = set()  # an aircraft takes part in at most one recommended swap
     for c in st.cann_candidates:
-        if c["net_aircraft_days"] <= 0:
+        if c["net_aircraft_days"] <= 0 or c["donor"] in swapped or c["recipient"] in swapped:
             continue
-        if any(a["type"] == "cannibalise" and a["meta"]["recipient"] == c["recipient"] for a in actions):
-            continue
+        swapped.update((c["donor"], c["recipient"]))
         actions.append(_action(
             f"cann-{c['donor']}-{c['recipient']}-{c['part']}", "cannibalise",
             f"Cannibalise {c['part']} from {c['donor']} to {c['recipient']}", c["net_aircraft_days"], None, "priced",

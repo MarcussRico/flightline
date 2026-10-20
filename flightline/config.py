@@ -19,7 +19,7 @@ HORIZON_DAYS = 90
 # Maintenance shift length used to turn repair man-hours into elapsed days.
 CREW_HOURS_PER_DAY = 12.0
 
-# GAO-01-587 (2001): a cannibalisation takes "at least twice the maintenance
+# GAO-02-86 (2001): a cannibalisation takes "at least twice the maintenance
 # time of normal repairs" -- one removal from the donor plus one installation
 # on the recipient, each as long as a normal replacement.
 CANN_LABOUR_MULTIPLIER = 2.0

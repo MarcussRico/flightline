@@ -1,1 +1,957 @@
-<!doctype html><title>FLIGHTLINE</title>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FLIGHTLINE · Fleet availability twin</title>
+<style>
+@font-face { font-family: "B612"; src: url("/static/fonts/B612-Regular.woff2") format("woff2"); font-weight: 400; font-style: normal; font-display: block; }
+@font-face { font-family: "B612"; src: url("/static/fonts/B612-Bold.woff2") format("woff2"); font-weight: 700; font-style: normal; font-display: block; }
+@font-face { font-family: "B612"; src: url("/static/fonts/B612-Italic.woff2") format("woff2"); font-weight: 400; font-style: italic; font-display: block; }
+@font-face { font-family: "B612 Mono"; src: url("/static/fonts/B612Mono-Regular.woff2") format("woff2"); font-weight: 400; font-display: block; }
+@font-face { font-family: "B612 Mono"; src: url("/static/fonts/B612Mono-Bold.woff2") format("woff2"); font-weight: 700; font-display: block; }
+
+:root {
+  color-scheme: dark;
+  --page: #161b1f;
+  --panel: #1c2227;
+  --panel-2: #222a30;
+  --rule: #2e383f;
+  --rule-strong: #43505a;
+  --ink: #ebe6da;
+  --ink-2: #b6b8ae;
+  --ink-3: #868d88;
+  --plan: #ebe6da;
+  --practice: #868d88;
+  --tasked: #b6b8ae;
+  --cell-up: #283139;
+  --cell-planned: #46525b;
+  --c-spares: #b88c2a;
+  --c-depot: #5d88d8;
+  --c-removal: #d4494c;
+  --c-cascade: #b25db2;
+  --c-grounded: #8d877a;
+  --gain: #ebe6da;
+  --focus: #ebe6da;
+  --grain-opacity: .05;
+}
+:root[data-theme="light"] {
+  color-scheme: light;
+  --page: #e4e7e5;
+  --panel: #f5f6f4;
+  --panel-2: #eceeec;
+  --rule: #d3d8d6;
+  --rule-strong: #aab3b1;
+  --ink: #171c20;
+  --ink-2: #434b50;
+  --ink-3: #6b7377;
+  --plan: #171c20;
+  --practice: #868d88;
+  --tasked: #434b50;
+  --cell-up: #dde2e1;
+  --cell-planned: #9aa4a6;
+  --c-spares: #a67814;
+  --c-depot: #3d6fc4;
+  --c-removal: #c43c3f;
+  --c-cascade: #9a479c;
+  --c-grounded: #7e786b;
+  --gain: #171c20;
+  --focus: #171c20;
+  --grain-opacity: .035;
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--page); color: var(--ink);
+  font: 400 14px/1.5 "B612", system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+body::before {
+  content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 0; opacity: var(--grain-opacity);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+.mono { font-family: "B612 Mono", ui-monospace, monospace; }
+.num { font-family: "B612", system-ui, sans-serif; }
+button, input, select { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+a { color: inherit; }
+
+/* ---- frame ---- */
+.top {
+  position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: 20px;
+  padding: 12px 24px; background: color-mix(in srgb, var(--page) 92%, transparent);
+  border-bottom: 1px solid var(--rule); backdrop-filter: blur(6px);
+}
+.wordmark { font-weight: 700; font-size: 19px; letter-spacing: .14em; }
+.wordmark small { display: block; font-weight: 400; font-size: 12px; letter-spacing: .01em; color: var(--ink-3); margin-top: -2px; }
+.top .spacer { flex: 1; }
+.badge {
+  font-family: "B612 Mono", monospace; font-size: 11px; letter-spacing: .08em; text-transform: uppercase;
+  padding: 5px 9px; border: 1px solid var(--c-spares); color: var(--c-spares); border-radius: 3px; white-space: nowrap;
+}
+.badge[data-real="true"] { border-color: var(--ink-2); color: var(--ink-2); }
+.solve { font-family: "B612", sans-serif; font-size: 12px; color: var(--ink-3); white-space: nowrap; }
+.solve b { color: var(--ink); font-weight: 400; }
+.solve.busy b { color: var(--c-spares); }
+.iconbtn { background: none; border: 1px solid var(--rule-strong); border-radius: 4px; padding: 5px 10px; cursor: pointer; font-size: 12px; color: var(--ink-2); }
+.iconbtn:hover { color: var(--ink); border-color: var(--ink-3); }
+
+.shell { position: relative; z-index: 1; display: grid; grid-template-columns: 272px minmax(0, 1fr); gap: 0; }
+.rail {
+  position: sticky; top: 61px; align-self: start; height: calc(100vh - 61px); overflow-y: auto;
+  padding: 22px 20px 32px; border-right: 1px solid var(--rule);
+}
+main { padding: 22px 28px 64px; min-width: 0; }
+
+.panel { background: var(--panel); border: 1px solid var(--rule); border-radius: 6px; padding: 18px 20px; min-width: 0; }
+#app > * + * { margin-top: 18px; }
+.row > .panel + .panel { margin-top: 0; }
+.row { display: grid; gap: 18px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.row.r-3-2 { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); }
+h2 { font-size: 15px; font-weight: 700; margin: 0; letter-spacing: .01em; }
+.sub { color: var(--ink-3); font-size: 12.5px; margin: 3px 0 14px; max-width: 70ch; }
+.label { font-family: "B612 Mono", monospace; font-size: 10.5px; letter-spacing: .09em; text-transform: uppercase; color: var(--ink-3); }
+.head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.head .grow { flex: 1; }
+
+/* ---- scenario rail ---- */
+.rail h2 { font-size: 14px; }
+.rail .sub { margin-bottom: 18px; }
+.ctl { margin-bottom: 22px; }
+.ctl .ctl-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+.ctl .val { font-family: "B612", sans-serif; font-size: 15px; }
+.chips { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin: 4px 0 10px; }
+.chips-base { font-family: "B612 Mono", monospace; font-size: 10.5px; color: var(--ink-3); letter-spacing: .08em; margin-top: 6px; }
+.chip {
+  font-family: "B612 Mono", monospace; font-size: 12px; padding: 5px 0; border-radius: 3px; cursor: pointer;
+  border: 1px solid var(--rule-strong); background: transparent; color: var(--ink-2);
+}
+.chip:hover { border-color: var(--ink-3); color: var(--ink); }
+.chip[aria-pressed="true"] {
+  color: var(--page); background: var(--c-grounded); border-color: var(--c-grounded);
+}
+input[type=range] { width: 100%; accent-color: var(--ink); height: 22px; margin: 0; }
+.ticks { display: flex; justify-content: space-between; font-family: "B612 Mono", monospace; font-size: 10.5px; color: var(--ink-3); }
+.reset { width: 100%; padding: 8px; border-radius: 4px; border: 1px solid var(--rule-strong); background: none; cursor: pointer; color: var(--ink-2); }
+.reset:hover { color: var(--ink); border-color: var(--ink-3); }
+.joined { margin-top: 26px; padding-top: 16px; border-top: 1px solid var(--rule); font-size: 12.5px; color: var(--ink-2); }
+.joined dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; margin: 8px 0 0; }
+.joined dt { font-family: "B612", sans-serif; color: var(--ink); text-align: right; }
+.joined dd { margin: 0; color: var(--ink-3); }
+
+/* ---- thesis ---- */
+.thesis { padding: 4px 0 18px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 24px; align-items: end; }
+.thesis p { margin: 0; font-size: 22px; line-height: 1.42; max-width: 46ch; color: var(--ink-2); letter-spacing: -.005em; }
+.thesis p strong { color: var(--ink); font-weight: 700; }
+.thesis p .num { font-size: .95em; }
+.figs { display: flex; gap: 22px; }
+.fig .label { display: block; margin-bottom: 2px; }
+.fig .v { font-family: "B612", sans-serif; font-size: 22px; line-height: 1.1; }
+.fig .d { font-family: "B612", sans-serif; font-size: 12px; color: var(--ink-3); }
+
+.seg { display: inline-flex; border: 1px solid var(--rule-strong); border-radius: 4px; overflow: hidden; }
+.seg button { background: none; border: 0; padding: 6px 12px; cursor: pointer; color: var(--ink-3); font-size: 12.5px; }
+.seg button + button { border-left: 1px solid var(--rule-strong); }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--page); }
+
+/* ---- the line board ---- */
+.board-wrap { overflow-x: auto; margin: 6px -4px 0; padding: 0 4px 4px; }
+.board { --cell: 10px; --gap: 1px; display: grid; grid-template-columns: 72px 36px repeat(90, var(--cell)); column-gap: var(--gap); row-gap: var(--gap); min-width: max-content; }
+.board .dayhead { font-family: "B612 Mono", monospace; font-size: 10px; color: var(--ink-3); height: 16px; position: relative; }
+.board .dayhead span { position: absolute; left: 0; bottom: 2px; white-space: nowrap; }
+.board .dayhead.wk { border-left: 1px solid var(--rule-strong); }
+.board .basehead { grid-column: 1 / -1; font-family: "B612 Mono", monospace; font-size: 10.5px; letter-spacing: .09em; color: var(--ink-3); padding: 8px 0 3px; border-bottom: 1px solid var(--rule); margin-bottom: 2px; }
+.board .tl { font-family: "B612 Mono", monospace; font-size: 11.5px; color: var(--ink-2); height: var(--row, 13px); line-height: 13px; display: flex; align-items: center; gap: 6px; }
+.board .tl.grounded { color: var(--c-grounded); text-decoration: line-through; }
+.board .crit { font-family: "B612 Mono", monospace; font-size: 10.5px; color: var(--ink-3); text-align: right; line-height: 13px; padding-right: 6px; }
+.cell { height: 13px; background: var(--cell-up); border-radius: 1px; position: relative; }
+.cell.k0 { background: var(--c-grounded); }
+.cell.k1 { background: var(--cell-planned); }
+.cell.k2 { background: var(--c-depot); }
+.cell.k3 { background: var(--c-spares); }
+.cell.k4 { background: repeating-linear-gradient(135deg, var(--c-cascade) 0 3px, color-mix(in srgb, var(--c-cascade) 55%, var(--panel)) 3px 4.5px); }
+.cell.k5 { background: var(--c-removal); }
+.cell.won { box-shadow: inset 0 0 0 1.5px var(--plan); background: var(--cell-up); }
+.cell.due::after { content: ""; position: absolute; left: -1px; top: -3px; bottom: -3px; width: 2px; background: var(--ink); border-radius: 1px; }
+.board .shortrow { height: 22px; display: flex; align-items: flex-end; }
+.board .short { width: 100%; background: var(--c-removal); border-radius: 1px 1px 0 0; }
+.board .shortlabel { font-family: "B612 Mono", monospace; font-size: 10.5px; color: var(--ink-3); align-self: end; line-height: 1.2; grid-column: 1 / 3; }
+
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 14px; font-size: 12.5px; color: var(--ink-2); }
+.legend .sw { display: inline-block; width: 11px; height: 11px; border-radius: 2px; vertical-align: -1px; margin-right: 6px; }
+.legend .n { font-family: "B612", sans-serif; color: var(--ink-3); margin-left: 4px; }
+.legend .won-sw { box-shadow: inset 0 0 0 1.5px var(--plan); background: var(--cell-up); }
+.legend .due-sw { width: 2px; background: var(--ink); height: 13px; vertical-align: -2px; }
+
+.tip {
+  position: fixed; z-index: 50; pointer-events: none; background: var(--panel-2); border: 1px solid var(--rule-strong);
+  border-radius: 4px; padding: 7px 10px; font-size: 12.5px; color: var(--ink); max-width: 280px; display: none;
+  box-shadow: 0 6px 24px rgba(0,0,0,.35);
+}
+.tip .mono { color: var(--ink-3); font-size: 11.5px; }
+
+/* ---- attribution ---- */
+.wf { margin-top: 6px; }
+.wf-row { display: grid; grid-template-columns: 170px minmax(0, 1fr) 128px; align-items: center; gap: 12px; padding: 5px 0; border-bottom: 1px solid var(--rule); }
+.wf-row:last-child { border-bottom: 0; }
+.wf-name { font-size: 13px; color: var(--ink-2); }
+.wf-name .sw { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 7px; }
+.wf-track { position: relative; height: 16px; }
+.wf-bar { position: absolute; top: 2px; height: 12px; border-radius: 2px; }
+.wf-mark { position: absolute; top: -2px; width: 2px; height: 20px; background: var(--ink); border-radius: 1px; }
+.wf-v { font-family: "B612", sans-serif; font-size: 12.5px; text-align: right; }
+.wf-v small { color: var(--ink-3); font-size: 11px; display: block; line-height: 1.2; }
+.wf-row.total .wf-name, .wf-row.total .wf-v { color: var(--ink); font-weight: 700; }
+.wf-axis { display: grid; grid-template-columns: 170px minmax(0, 1fr) 128px; gap: 12px; font-family: "B612 Mono", monospace; font-size: 10.5px; color: var(--ink-3); margin-top: 4px; }
+.wf-axis .ax { position: relative; height: 14px; }
+.wf-axis .ax span { position: absolute; transform: translateX(-50%); }
+
+.chartbox { position: relative; height: 240px; }
+.chartbox.small { height: 200px; }
+
+/* ---- actions ---- */
+.actions { list-style: none; margin: 4px 0 0; padding: 0; }
+.act { display: grid; grid-template-columns: 30px minmax(0, 1fr) 104px; gap: 12px; padding: 12px 0; border-top: 1px solid var(--rule); }
+.act:first-child { border-top: 0; }
+.act .rk { font-family: "B612 Mono", monospace; font-size: 12px; color: var(--ink-3); padding-top: 2px; }
+.act .t { font-weight: 700; font-size: 14px; }
+.act .r { color: var(--ink-2); font-size: 13px; margin-top: 3px; }
+.act .meta { display: flex; gap: 10px; align-items: center; margin-top: 6px; flex-wrap: wrap; }
+.tag { font-family: "B612 Mono", monospace; font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); border: 1px solid var(--rule-strong); border-radius: 3px; padding: 1px 6px; }
+.tag.inspect { color: var(--c-spares); border-color: var(--c-spares); }
+.why { background: none; border: 0; padding: 0; color: var(--ink-2); cursor: pointer; font-size: 12.5px; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--rule-strong); }
+.why:hover { color: var(--ink); }
+.act .g { text-align: right; }
+.act .g .v { font-family: "B612", sans-serif; font-size: 20px; line-height: 1.1; color: var(--gain); }
+.act .g .u { font-size: 11px; color: var(--ink-3); }
+.act .g .s { font-family: "B612", sans-serif; font-size: 11.5px; color: var(--ink-3); margin-top: 3px; }
+.trace { grid-column: 2 / -1; margin: 6px 0 0; padding: 10px 12px; background: var(--panel-2); border-radius: 4px; list-style: none; font-size: 12.5px; color: var(--ink-2); }
+.trace li { display: grid; grid-template-columns: 128px minmax(0,1fr); gap: 10px; padding: 3px 0; }
+.trace .silo { font-family: "B612 Mono", monospace; font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-3); padding-top: 2px; }
+.act.extra { display: none; }
+.actions.all .act.extra { display: grid; }
+.more { margin-top: 10px; background: none; border: 1px solid var(--rule-strong); border-radius: 4px; padding: 6px 12px; cursor: pointer; color: var(--ink-2); font-size: 12.5px; }
+
+/* ---- cannibalisation ---- */
+.cann-big { font-size: 21px; line-height: 1.3; margin: 4px 0 10px; }
+.cann-big .num { font-size: 1em; }
+.cann-big .neg { color: var(--c-removal); }
+.cann-verdict { color: var(--ink-2); font-size: 13.5px; margin: 0 0 14px; }
+.cann-pick { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 8px; margin-bottom: 14px; }
+.cann-pick label { font-size: 11px; color: var(--ink-3); display: block; }
+select { width: 100%; background: var(--panel-2); border: 1px solid var(--rule-strong); border-radius: 4px; padding: 6px 8px; font-family: "B612 Mono", monospace; font-size: 12.5px; }
+.kv { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 0 12px; font-size: 13px; }
+.kv div { padding: 5px 0; border-top: 1px solid var(--rule); }
+.kv .k { color: var(--ink-2); }
+.kv .v { font-family: "B612", sans-serif; text-align: right; }
+.kv .tot { color: var(--ink); font-weight: 700; }
+.fine { font-size: 11.5px; color: var(--ink-3); margin-top: 10px; }
+
+/* ---- prognosis gate ---- */
+.gate { margin-top: 6px; }
+.gate-row { display: grid; grid-template-columns: 150px minmax(0,1fr) 88px; gap: 12px; align-items: center; padding: 4px 0; }
+.gate-row .who { font-family: "B612 Mono", monospace; font-size: 11.5px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gate-row .who small { color: var(--ink-3); }
+.gate-track { position: relative; height: 16px; border-bottom: 1px dotted var(--rule); }
+.gate-win { position: absolute; top: 0; bottom: 0; left: 0; background: color-mix(in srgb, var(--ink) 11%, transparent); border-right: 2px solid var(--ink-3); }
+.gate-iv { position: absolute; top: 5px; height: 6px; border-radius: 3px; background: var(--ink-2); }
+.gate-row.inspect .gate-iv { background: var(--c-spares); }
+.gate-pt { position: absolute; top: 2px; width: 2px; height: 12px; background: var(--ink); }
+.gate-row .st { font-family: "B612 Mono", monospace; font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; text-align: right; color: var(--ink-2); }
+.gate-row.inspect .st { color: var(--c-spares); }
+.gate-axis { display: grid; grid-template-columns: 150px minmax(0,1fr) 88px; gap: 12px; font-family: "B612 Mono", monospace; font-size: 10.5px; color: var(--ink-3); }
+.gate-axis .ax { position: relative; height: 14px; }
+.gate-axis .ax span { position: absolute; transform: translateX(-50%); }
+.gate-key { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12px; color: var(--ink-2); margin: 10px 0 0; }
+.gate-key i { display: inline-block; vertical-align: -1px; margin-right: 6px; }
+
+/* ---- tables ---- */
+table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+th { font-family: "B612 Mono", monospace; font-size: 10.5px; font-weight: 400; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-3); text-align: left; padding: 6px 8px 6px 0; border-bottom: 1px solid var(--rule-strong); }
+td { padding: 6px 12px 6px 0; border-bottom: 1px solid var(--rule); color: var(--ink-2); white-space: nowrap; }
+th { white-space: nowrap; }
+td.n { text-align: right; font-family: "B612", sans-serif; }
+th.n { text-align: right; }
+td.strong { color: var(--ink); }
+.bar { height: 6px; background: var(--ink-2); border-radius: 0 3px 3px 0; min-width: 0; }
+.scroll { overflow-x: auto; }
+
+/* ---- depot ---- */
+.gantt { margin-top: 6px; }
+.g-row { display: grid; grid-template-columns: 70px minmax(0,1fr); gap: 10px; align-items: center; height: 26px; }
+.g-row .who { font-family: "B612 Mono", monospace; font-size: 11.5px; color: var(--ink-2); }
+.g-track { position: relative; height: 100%; border-bottom: 1px solid var(--rule); }
+.g-bar { position: absolute; height: 7px; border-radius: 2px; }
+.g-bar.prac { top: 4px; background: var(--practice); opacity: .55; }
+.g-bar.plan { top: 13px; background: var(--plan); }
+.g-due { position: absolute; top: 1px; bottom: 1px; width: 2px; background: var(--c-depot); }
+.g-late { position: absolute; top: 4px; height: 7px; background: repeating-linear-gradient(90deg, var(--c-depot) 0 2px, transparent 2px 4px); }
+
+/* ---- metrics ---- */
+.cmp { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 0; border: 1px solid var(--rule); border-radius: 5px; overflow: hidden; margin-top: 6px; }
+.cmp > div { padding: 14px 16px; }
+.cmp > div + div { border-left: 1px solid var(--rule); }
+.cmp h3 { font-size: 13px; margin: 0 0 10px; font-weight: 700; }
+.cmp .big { font-family: "B612", sans-serif; font-size: 30px; line-height: 1; }
+.cmp .big + .label { margin: 4px 0 12px; display: block; }
+.cmp .ours h3 { color: var(--ink); }
+.honest { margin-top: 18px; display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 18px; font-size: 13px; color: var(--ink-2); }
+.honest h3 { font-size: 13px; color: var(--ink); margin: 0 0 6px; }
+.honest p { margin: 0; }
+
+.skeleton { color: var(--ink-3); font-family: "B612 Mono", monospace; font-size: 12px; padding: 40px 0; }
+.err { color: var(--c-removal); font-size: 13px; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+@media (max-width: 1180px) {
+  .row, .row.r-3-2 { grid-template-columns: minmax(0, 1fr); }
+  .thesis { grid-template-columns: minmax(0,1fr); }
+  .honest { grid-template-columns: minmax(0,1fr); }
+}
+@media (max-width: 900px) {
+  .shell { grid-template-columns: minmax(0, 1fr); }
+  .rail { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--rule); }
+  .chips { grid-template-columns: repeat(8, 1fr); }
+  main { padding: 18px 16px 48px; }
+  .top { padding: 10px 16px; gap: 12px; flex-wrap: wrap; }
+  .thesis p { font-size: 18px; }
+  .wf-row, .wf-axis { grid-template-columns: 120px minmax(0,1fr) 96px; }
+  .gate-row, .gate-axis { grid-template-columns: 112px minmax(0,1fr) 64px; }
+  .cmp { grid-template-columns: minmax(0,1fr); }
+  .cmp > div + div { border-left: 0; border-top: 1px solid var(--rule); }
+  .act { grid-template-columns: 24px minmax(0, 1fr) 76px; }
+  .trace li { grid-template-columns: minmax(0,1fr); gap: 0; }
+}
+@media (max-width: 520px) {
+  .chips { grid-template-columns: repeat(4, 1fr); }
+  .figs { flex-wrap: wrap; }
+  .cann-pick { grid-template-columns: minmax(0,1fr); }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+/* ---- printable maintenance order ---- */
+.print-only { display: none; }
+@media print {
+  :root { --page: #fff; --panel: #fff; --panel-2: #f3f3f3; --ink: #000; --ink-2: #222; --ink-3: #555; --rule: #ccc; --rule-strong: #999; --gain: #000; }
+  body::before, .top, .rail, #skeleton, #app > *:not(.r-3-2), .r-3-2 > :not(#order-section) { display: none !important; }
+  .shell, .r-3-2 { display: block; }
+  main { padding: 0; }
+  #order-section { border: 0; padding: 0; }
+  .print-only { display: block; }
+  .why, .more, .tag { display: none !important; }
+  .act { break-inside: avoid; }
+  .trace { display: block !important; background: none; padding: 4px 0 0; }
+  .act.extra { display: grid !important; }
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wordmark">FLIGHTLINE<small>Fleet availability twin · 90-day projection from today</small></div>
+  <div class="spacer"></div>
+  <span class="solve" id="solve" aria-live="polite">Loading…</span>
+  <span class="badge" id="badge" title="Where the numbers come from">SYNTHETIC SCENARIO</span>
+  <button class="iconbtn" id="print" type="button">Print maintenance order</button>
+  <button class="iconbtn" id="theme" type="button" aria-label="Switch between dark and light">Light</button>
+</header>
+
+<div class="shell">
+  <aside class="rail" aria-label="Scenario">
+    <h2>Scenario</h2>
+    <p class="sub">Change anything. Both plans are re-simulated and the optimiser re-solves.</p>
+
+    <div class="ctl">
+      <div class="ctl-head"><span class="label" id="gl">Ground aircraft</span><span class="val" id="gcount">0</span></div>
+      <div id="chips" role="group" aria-labelledby="gl"></div>
+    </div>
+
+    <div class="ctl">
+      <div class="ctl-head"><label class="label" for="delay">Spares convoy delay</label><span class="val" id="delayv">0 days</span></div>
+      <input type="range" id="delay" min="0" max="30" step="1" value="0">
+      <div class="ticks"><span>0</span><span>15</span><span>30 days</span></div>
+    </div>
+
+    <div class="ctl">
+      <div class="ctl-head"><label class="label" for="surge">Sortie surge, next 14 days</label><span class="val" id="surgev">+0%</span></div>
+      <input type="range" id="surge" min="0" max="100" step="10" value="0">
+      <div class="ticks"><span>0</span><span>+50%</span><span>+100%</span></div>
+    </div>
+
+    <button class="reset" id="reset" type="button">Reset to today's plan</button>
+
+    <div class="joined" id="joined"></div>
+  </aside>
+
+  <main id="main">
+    <div class="skeleton" id="skeleton">Loading the fleet…</div>
+    <div id="app" hidden>
+
+      <section class="thesis" aria-label="Headline">
+        <p id="thesis"></p>
+        <div class="figs" id="figs"></div>
+      </section>
+
+      <section class="panel" aria-labelledby="board-h">
+        <div class="head">
+          <h2 id="board-h">Line board</h2>
+          <span class="grow sub" style="margin:0" id="board-sub"></span>
+          <div class="seg" role="group" aria-label="Which plan to show">
+            <button type="button" data-view="baseline" aria-pressed="false">Current practice</button>
+            <button type="button" data-view="plan" aria-pressed="true">FLIGHTLINE plan</button>
+          </div>
+        </div>
+        <p class="sub" id="board-note">Every aircraft, every day of the next 90. A coloured day is a day on the ground, coloured by the reason. The figure beside each tail is the sortie-days the fleet loses if that aircraft is lost for the whole horizon.</p>
+        <div class="board-wrap"><div class="board" id="board" role="img" aria-label="Status of each aircraft for each of the next 90 days"></div></div>
+        <div class="legend" id="legend"></div>
+      </section>
+
+      <div class="row">
+        <section class="panel" aria-labelledby="wf-h">
+          <h2 id="wf-h">Where availability goes</h2>
+          <p class="sub" id="wf-sub"></p>
+          <div class="wf" id="wf"></div>
+        </section>
+        <section class="panel" aria-labelledby="line-h">
+          <h2 id="line-h">Aircraft available each day</h2>
+          <p class="sub">Against the aircraft tasked by the sortie plan. Where the line drops below tasking, sorties are lost.</p>
+          <div class="chartbox"><canvas id="daily" aria-label="Aircraft available per day, current practice and plan, against tasking"></canvas></div>
+        </section>
+      </div>
+
+      <div class="row r-3-2">
+        <section class="panel" id="order-section" aria-labelledby="act-h">
+          <div class="print-only">
+            <h1 style="font-size:18px;margin:0 0 4px">Maintenance order — draft recommendation</h1>
+            <p style="margin:0 0 12px;font-size:12px" id="print-meta"></p>
+          </div>
+          <h2 id="act-h">What to do, ranked by aircraft-days</h2>
+          <p class="sub">Each recommendation is scored in aircraft-days gained and carries the trace of how. FLIGHTLINE ranks and prices; it never authorises. The signature stays with the engineering officer.</p>
+          <ol class="actions" id="actions"></ol>
+          <button class="more" id="more" type="button" hidden></button>
+        </section>
+
+        <section class="panel" aria-labelledby="cann-h">
+          <h2 id="cann-h">Cannibalisation, priced</h2>
+          <p class="sub">Robbing a serviceable part from one aircraft to fly another moves the hole; it does not fill it. Here is what each swap actually costs over the next <span id="cann-h-days">30</span> days.</p>
+          <div id="cann"></div>
+        </section>
+      </div>
+
+      <section class="panel" aria-labelledby="gate-h">
+        <div class="head"><h2 id="gate-h">The abstention gate</h2><span class="grow"></span><span class="label" id="gate-counts"></span></div>
+        <p class="sub">Remaining life as a 90% conformal interval, in days, for every part whose interval reaches its decision window (spares lead + delay + depot queue + fitting). When the interval is wider than the window, the model says it does not know and asks for an inspection.</p>
+        <div class="gate" id="gate"></div>
+      </section>
+
+      <div>
+        <section class="panel" aria-labelledby="sp-h">
+          <h2 id="sp-h">Which spare, stocked where, unlocks the most</h2>
+          <p class="sub">One more unit on the shelf today at each base, replayed through the projection. A query that needs all four silos at once.</p>
+          <div class="scroll"><table id="spares"></table></div>
+          <p class="fine" id="spares-note"></p>
+        </section>
+      </div>
+      <div>
+        <section class="panel" aria-labelledby="dp-h">
+          <h2 id="dp-h">Depot inductions</h2>
+          <p class="sub" id="dp-sub"></p>
+          <div class="gantt" id="gantt"></div>
+        </section>
+      </div>
+
+      <section class="panel" aria-labelledby="aph-h">
+        <h2 id="aph-h">Accuracy is the wrong target</h2>
+        <p class="sub">A prediction is worth nothing if it arrives after the last day you could have acted on it. Actionable Prognostic Horizon (APH) = share of failures warned at least one decision window ahead. Both models below were trained here on the same data and tested on the same held-out units.</p>
+        <div class="cmp" id="cmp"></div>
+        <div class="row" style="margin-top:18px">
+          <div><div class="label" style="margin-bottom:6px">APH by part, against its decision window</div><div class="chartbox small"><canvas id="aphpart" aria-label="APH by part for both models"></canvas></div></div>
+          <div><div class="label" style="margin-bottom:6px" id="ft-label">How early it warns, as labelled failures grow</div><div class="chartbox small"><canvas id="finetune" aria-label="Warning lead divided by decision window, by number of labelled failures"></canvas></div><p class="fine" id="ft-note"></p></div>
+        </div>
+        <div class="honest" id="honest"></div>
+      </section>
+    </div>
+  </main>
+</div>
+<div class="tip" id="tip" role="tooltip"></div>
+
+<script src="/static/vendor/chart.umd.min.js"></script>
+<script>
+if (!window.Chart) { document.write('<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"><\/script>'); }
+</script>
+<script>
+"use strict";
+const LABEL_NAMES = {
+  directed_grounding: "Directed grounding", planned: "Scheduled inspection", depot_contention: "Waiting for a depot bay",
+  spares_lead_time: "Waiting for spares", cannibalisation_cascade: "Cannibalisation cascade",
+  unscheduled_removal: "Unscheduled removal", up: "Available",
+};
+const CAUSE_ORDER = ["spares_lead_time", "depot_contention", "unscheduled_removal", "cannibalisation_cascade", "directed_grounding"];
+const CAUSE_VAR = { spares_lead_time: "--c-spares", depot_contention: "--c-depot", unscheduled_removal: "--c-removal",
+  cannibalisation_cascade: "--c-cascade", directed_grounding: "--c-grounded", planned: "--cell-planned" };
+const UP = 6;
+const SHORT = { "PN-5520-ADC": "Air data", "PN-3108-GEN": "Generator", "PN-4410-HP": "Hyd. pump", "PN-1904-MLA": "MLG act.", "PN-2275-FCU": "Fuel ctrl", "PN-6731-RTX": "Radar TX" };
+const $ = (s, r = document) => r.querySelector(s);
+const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const pct = (x, d = 1) => (100 * x).toFixed(d) + "%";
+const sgn = (x, d = 0) => (x > 0 ? "+" : x < 0 ? "−" : "±") + Math.abs(x).toFixed(d);
+const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+
+let S = null;               // current state from the API
+let view = "plan";          // which projection the board and attribution show
+let showAll = false;
+let seq = 0;
+const charts = {};
+
+// ---------- theme ----------
+function setTheme(t) {
+  document.documentElement.setAttribute("data-theme", t);
+  $("#theme").textContent = t === "dark" ? "Light" : "Dark";
+  try { localStorage.setItem("fl-theme", t); } catch (e) {}
+  if (S) renderCharts();
+}
+(function () {
+  let t = "dark";
+  try { t = localStorage.getItem("fl-theme") || "dark"; } catch (e) {}
+  setTheme(t);
+})();
+$("#theme").addEventListener("click", () => setTheme(document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark"));
+$("#print").addEventListener("click", () => window.print());
+
+// ---------- scenario controls ----------
+const scenario = { ground_tails: [], spares_delay_days: 0, sortie_surge: 0 };
+function buildChips(fleet) {
+  const box = $("#chips");
+  box.innerHTML = "";
+  const bases = [...new Set(fleet.map((f) => f.base))];
+  for (const b of bases) {
+    box.appendChild(el("div", "chips-base", b));
+    const g = el("div", "chips");
+    for (const f of fleet.filter((x) => x.base === b)) {
+      const c = el("button", "chip", f.tail.slice(5));
+      c.type = "button";
+      c.dataset.tail = f.tail;
+      c.setAttribute("aria-pressed", "false");
+      c.setAttribute("aria-label", "Ground " + f.tail);
+      c.addEventListener("click", () => {
+        const i = scenario.ground_tails.indexOf(f.tail);
+        if (i >= 0) scenario.ground_tails.splice(i, 1); else scenario.ground_tails.push(f.tail);
+        syncControls(); push();
+      });
+      g.appendChild(c);
+    }
+    box.appendChild(g);
+  }
+}
+function syncControls() {
+  document.querySelectorAll(".chip").forEach((c) => c.setAttribute("aria-pressed", scenario.ground_tails.includes(c.dataset.tail)));
+  $("#gcount").textContent = scenario.ground_tails.length;
+  $("#delay").value = scenario.spares_delay_days;
+  $("#surge").value = scenario.sortie_surge;
+  $("#delayv").textContent = (scenario.spares_delay_days ? "+" : "") + scenario.spares_delay_days + " days";
+  $("#surgev").textContent = "+" + scenario.sortie_surge + "%";
+}
+let timer = null;
+function push() {
+  clearTimeout(timer);
+  $("#solve").classList.add("busy");
+  $("#solve").innerHTML = "<b>Re-solving…</b>";
+  timer = setTimeout(send, 180);
+}
+async function send() {
+  const my = ++seq;
+  try {
+    const r = await fetch("/api/scenario", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(scenario) });
+    if (!r.ok) throw new Error((await r.text()) || r.status);
+    const s = await r.json();
+    if (my === seq) { S = s; render(); }
+  } catch (e) {
+    if (my === seq) $("#solve").innerHTML = '<span class="err">Could not re-solve: ' + esc(e.message) + "</span>";
+  }
+}
+$("#delay").addEventListener("input", (e) => { scenario.spares_delay_days = +e.target.value; syncControls(); push(); });
+$("#surge").addEventListener("input", (e) => { scenario.sortie_surge = +e.target.value; syncControls(); push(); });
+$("#reset").addEventListener("click", () => { scenario.ground_tails = []; scenario.spares_delay_days = 0; scenario.sortie_surge = 0; syncControls(); push(); });
+document.querySelectorAll(".seg button").forEach((b) => b.addEventListener("click", () => {
+  view = b.dataset.view;
+  document.querySelectorAll(".seg button").forEach((x) => x.setAttribute("aria-pressed", x === b));
+  renderBoard(); renderAttribution();
+}));
+
+// ---------- render ----------
+function render() {
+  $("#skeleton").hidden = true; $("#app").hidden = false;
+  const s = S;
+  $("#solve").classList.remove("busy");
+  const opt = s.optimiser;
+  $("#solve").innerHTML = "Re-solved in <b>" + Math.round(s.timings_ms.total) + " ms</b> · " + esc(opt.engine) + " " + esc(opt.status.toLowerCase());
+  $("#badge").textContent = s.provenance.badge;
+  $("#badge").dataset.real = s.provenance.real_data;
+  if (!document.querySelector(".chip")) buildChips(s.fleet);
+  scenario.ground_tails = [...s.scenario.ground_tails];
+  scenario.spares_delay_days = s.scenario.spares_delay_days;
+  scenario.sortie_surge = s.scenario.sortie_surge;
+  syncControls();
+  renderJoined(); renderThesis(); renderBoard(); renderAttribution(); renderActions(); renderCann();
+  renderGate(); renderSpares(); renderDepot(); renderMetrics(); renderCharts();
+}
+
+function renderJoined() {
+  const n = S.twin.nodes, e = S.twin.edges;
+  $("#joined").innerHTML = '<span class="label">The twin joins four silos</span><dl>' +
+    `<dt>${n.lru}</dt><dd>installed LRUs · health monitoring</dd>` +
+    `<dt>${e.inspection_due}</dt><dd>inspections due · technical records</dd>` +
+    `<dt>${n.stock_location}</dt><dd>stock locations · spares</dd>` +
+    `<dt>${n.bay}</dt><dd>depot bays · MRO</dd>` +
+    `<dt>${S.twin.n_edges}</dt><dd>edges in one graph</dd></dl>`;
+}
+
+function renderThesis() {
+  const b = S.baseline, p = S.plan, d = S.delta;
+  const sc = S.scenario;
+  const cond = [];
+  if (sc.ground_tails.length) cond.push(`with ${sc.ground_tails.length} aircraft grounded`);
+  if (sc.spares_delay_days) cond.push(`spares ${sc.spares_delay_days} days late`);
+  if (sc.sortie_surge) cond.push(`a ${sc.sortie_surge}% sortie surge`);
+  const when = cond.length ? " " + cond.join(", ") : "";
+  $("#thesis").innerHTML =
+    `Current practice keeps <strong class="num">${pct(b.ao)}</strong> of the fleet available over the next 90 days${esc(when)}. ` +
+    `The FLIGHTLINE plan keeps <strong class="num">${pct(p.ao)}</strong>: ` +
+    `<strong>${sgn(d.aircraft_days)} aircraft-days</strong> and <strong>${sgn(d.sortie_days)} sorties flown</strong>, from the same aircraft, parts and bays.`;
+  $("#figs").innerHTML = [
+    ["Ceiling", pct(p.ceiling), "inspections only"],
+    ["Sorties lost", `${b.sortie_days_lost} → ${p.sortie_days_lost}`, `of ${p.sortie_days_tasked} tasked`],
+    ["Bay queue", `${b.mean_depot_queue_days.toFixed(1)} → ${p.mean_depot_queue_days.toFixed(1)}`, "days, mean"],
+  ].map(([k, v, dd]) => `<div class="fig"><span class="label">${k}</span><div class="v">${v}</div><div class="d">${dd}</div></div>`).join("");
+}
+
+function renderBoard() {
+  const s = S, board = $("#board");
+  const H = s.horizon_days;
+  board.innerHTML = "";
+  board.appendChild(el("div", "dayhead"));
+  board.appendChild(el("div", "dayhead", '<span title="Sortie-days at risk if this aircraft is lost">risk</span>'));
+  for (let t = 0; t < H; t++) {
+    const d = el("div", "dayhead" + (t % 7 === 0 ? " wk" : ""));
+    if (t % 14 === 0) d.innerHTML = `<span>&nbsp;D${t}</span>`;
+    board.appendChild(d);
+  }
+  const counts = {};
+  let won = 0;
+  const bases = [...new Set(s.fleet.map((f) => f.base))];
+  const frag = document.createDocumentFragment();
+  for (const b of bases) {
+    frag.appendChild(el("div", "basehead", b));
+    for (const f of s.fleet.filter((x) => x.base === b)) {
+      const tl = el("div", "tl" + (f.grounded ? " grounded" : ""), f.tail);
+      frag.appendChild(tl);
+      frag.appendChild(el("div", "crit", Math.round(f.criticality_sortie_days)));
+      const row = f[view], other = f.baseline;
+      const due = f.inspection ? f.inspection.due : -1;
+      for (let t = 0; t < H; t++) {
+        const k = row[t];
+        let cls = "cell";
+        if (k !== UP) cls += " k" + k;
+        else if (view === "plan" && other[t] !== UP && other[t] !== 1) { cls += " won"; won++; }
+        if (t === due) cls += " due";
+        const c = el("div", cls);
+        c.dataset.t = t; c.dataset.tail = f.tail; c.dataset.k = k;
+        frag.appendChild(c);
+        counts[k] = (counts[k] || 0) + 1;
+      }
+    }
+  }
+  // sorties missed per day, under the board
+  const flown = view === "plan" ? s.daily.flown_plan : s.daily.flown_baseline;
+  const missed = s.daily.tasked.map((x, i) => x - flown[i]);
+  const maxMiss = Math.max(3, ...missed);
+  frag.appendChild(el("div", "shortlabel", "sorties missed"));
+  for (let t = 0; t < H; t++) {
+    const r = el("div", "shortrow");
+    if (missed[t] > 0) { const bar = el("div", "short"); bar.style.height = (100 * missed[t] / maxMiss) + "%"; r.appendChild(bar); r.dataset.miss = missed[t]; r.dataset.t = t; }
+    frag.appendChild(r);
+  }
+  board.appendChild(frag);
+  board.style.setProperty("grid-template-columns", "");
+  const order = [3, 2, 5, 4, 0, 1];
+  const lab = s.labels;
+  let lg = order.filter((k) => counts[k]).map((k) =>
+    `<span><span class="sw cell k${k}" style="display:inline-block;height:11px"></span>${LABEL_NAMES[lab[k]]}<span class="n">${counts[k]}</span></span>`).join("");
+  if (view === "plan" && won) lg += `<span><span class="sw won-sw"></span>Lost under current practice, flying under the plan<span class="n">${won}</span></span>`;
+  lg += `<span><span class="sw due-sw"></span>Inspection due</span>`;
+  $("#legend").innerHTML = lg;
+  $("#board-sub").textContent = view === "plan" ? "FLIGHTLINE plan" : "Current practice: first-come inductions, reactive cannibalisation";
+}
+
+// board tooltip
+(function () {
+  const tip = $("#tip");
+  const board = $("#board");
+  board.addEventListener("mousemove", (e) => {
+    const c = e.target.closest(".cell, .shortrow");
+    if (!c || !S) { tip.style.display = "none"; return; }
+    let html;
+    if (c.classList.contains("shortrow")) {
+      if (!c.dataset.miss) { tip.style.display = "none"; return; }
+      html = `<span class="mono">Day ${c.dataset.t}</span><br>${c.dataset.miss} tasked sortie(s) without an aircraft`;
+    } else {
+      const k = +c.dataset.k, name = LABEL_NAMES[S.labels[k]];
+      const f = S.fleet.find((x) => x.tail === c.dataset.tail);
+      let extra = "";
+      if (c.classList.contains("won")) extra = `<br>Down under current practice (${LABEL_NAMES[S.labels[f.baseline[+c.dataset.t]]].toLowerCase()}); flying under the plan`;
+      if (f.inspection && +c.dataset.t === f.inspection.due) extra += `<br>Phase inspection due`;
+      html = `<span class="mono">${c.dataset.tail} · day ${c.dataset.t}</span><br>${name}${extra}`;
+    }
+    tip.innerHTML = html;
+    tip.style.display = "block";
+    const x = Math.min(e.clientX + 14, window.innerWidth - tip.offsetWidth - 8);
+    const y = e.clientY + 16 + tip.offsetHeight > window.innerHeight ? e.clientY - tip.offsetHeight - 10 : e.clientY + 16;
+    tip.style.left = x + "px"; tip.style.top = y + "px";
+  });
+  board.addEventListener("mouseleave", () => { tip.style.display = "none"; });
+})();
+
+function renderAttribution() {
+  const r = S[view];
+  const total = r.aircraft_days_total;
+  const lo = Math.max(0, Math.floor(r.ao * 100 - 1)), hi = Math.min(100, Math.ceil(r.ceiling * 100 + 0.5));
+  const X = (v) => (100 * (v * 100 - lo) / (hi - lo)) + "%";
+  let run = r.ceiling;
+  let html = `<div class="wf-row total"><div class="wf-name">Ceiling</div><div class="wf-track"><div class="wf-mark" style="left:${X(r.ceiling)}"></div></div><div class="wf-v">${pct(r.ceiling)}<small>${r.planned_maintenance_days} d inspection</small></div></div>`;
+  for (const c of CAUSE_ORDER) {
+    const v = r.attribution[c];
+    if (!v && c === "directed_grounding") continue;
+    const left = run - v;
+    html += `<div class="wf-row"><div class="wf-name"><span class="sw" style="background:var(${CAUSE_VAR[c]})"></span>${LABEL_NAMES[c]}</div>` +
+      `<div class="wf-track">${v ? `<div class="wf-bar" style="left:${X(left)};width:calc(${X(run)} - ${X(left)});background:var(${CAUSE_VAR[c]})"></div>` : ""}</div>` +
+      `<div class="wf-v">−${(100 * v).toFixed(1)} pts<small>${r.attribution_days[c]} aircraft-days</small></div></div>`;
+    run = left;
+  }
+  html += `<div class="wf-row total"><div class="wf-name">Achieved Ao</div><div class="wf-track"><div class="wf-mark" style="left:${X(r.ao)}"></div></div><div class="wf-v">${pct(r.ao)}<small>${r.aircraft_days_available} of ${total}</small></div></div>`;
+  const ticks = [];
+  const span = hi - lo;
+  const step = span > 24 ? 10 : span > 10 ? (window.innerWidth < 600 ? 5 : 2) : (window.innerWidth < 600 ? 2 : 1);
+  for (let v = Math.ceil(lo / step) * step; v <= hi; v += step) ticks.push(`<span style="left:${100 * (v - lo) / (hi - lo)}%">${v}%</span>`);
+  html += `<div class="wf-axis"><div></div><div class="ax">${ticks.join("")}</div><div></div></div>`;
+  $("#wf").innerHTML = html;
+  const gapDays = Object.values(r.attribution_days).reduce((a, b) => a + b, 0);
+  $("#wf-sub").innerHTML = `${view === "plan" ? "FLIGHTLINE plan" : "Current practice"}. Why availability is ${pct(r.ao)} and not ${pct(r.ceiling)}: every grounded aircraft-day is counted once, under its highest-priority reason, so the causes add up to the ${(100 * r.gap).toFixed(1)}-point gap exactly (${gapDays} aircraft-days).`;
+}
+
+const traceHTML = (a) => `<ul class="trace" hidden>${a.trace.map((s) => `<li><span class="silo">${esc(s.silo)}</span><span>${esc(s.text)}</span></li>`).join("")}</ul>`;
+function actionHTML(a, i) {
+  const unit = a.type === "cannibalise" ? "aircraft-days, priced" : "aircraft-days";
+  const sd = a.sortie_days_gained == null ? "" : `<div class="s">${sgn(a.sortie_days_gained)} sorties</div>`;
+  const tag = { depot: "depot", expedite: "spares", policy: "policy", cannibalise: "cannibalise", order: "order", inspect: "inspect" }[a.type];
+  return `<li class="act${i >= 7 ? " extra" : ""}" data-id="${esc(a.id)}"><div class="rk">${a.rank}</div><div><div class="t">${esc(a.title)}</div><div class="r">${esc(a.reason)}</div>` +
+    `<div class="meta"><span class="tag ${a.type === "inspect" ? "inspect" : ""}">${tag}</span><span class="tag">${esc(a.method)}</span><button class="why" type="button" aria-expanded="false">Why this number</button></div></div>` +
+    `<div class="g"><div class="v">${sgn(a.aircraft_days_gained, Number.isInteger(a.aircraft_days_gained) ? 0 : 1)}</div><div class="u">${unit}</div>${sd}</div>${traceHTML(a)}</li>`;
+}
+function renderActions() {
+  const acts = S.actions;
+  $("#actions").innerHTML = acts.map(actionHTML).join("");
+  $("#actions").classList.toggle("all", showAll);
+  const more = $("#more");
+  more.hidden = acts.length <= 7;
+  more.textContent = showAll ? "Show the top 7" : `Show all ${acts.length}`;
+  $("#print-meta").textContent = `Scenario: ${S.scenario.ground_tails.length ? "grounded " + S.scenario.ground_tails.join(", ") + "; " : ""}spares delay ${S.scenario.spares_delay_days} d; sortie surge +${S.scenario.sortie_surge}%. ${S.provenance.badge}. Ao ${pct(S.baseline.ao)} → ${pct(S.plan.ao)}. Recommendations only; not an authorisation.`;
+}
+$("#more").addEventListener("click", () => { showAll = !showAll; renderActions(); });
+$("#actions").addEventListener("click", (e) => {
+  const b = e.target.closest(".why");
+  if (!b) return;
+  const ul = b.closest(".act").querySelector(".trace");
+  ul.hidden = !ul.hidden;
+  b.setAttribute("aria-expanded", String(!ul.hidden));
+  b.textContent = ul.hidden ? "Why this number" : "Hide trace";
+});
+
+// ---------- cannibalisation ----------
+let cannSel = null;
+function cannHTML(c) {
+  const net = c.net_aircraft_days;
+  const gain = c.aircraft_gained_now ? `+1 aircraft in ${c.swap_days} day${c.swap_days > 1 ? "s" : ""}` : "No aircraft gained";
+  const i = c.inputs;
+  const d = (v) => v == null ? "beyond horizon" : v.toFixed(0) + " d";
+  return `<div class="cann-big"><span>${gain}</span>, <span class="num ${net < 0 ? "neg" : ""}">${sgn(net, 1)}</span> aircraft-days over ${c.lookahead_days}.</div>` +
+    `<p class="cann-verdict">${esc(c.verdict)}</p>` +
+    `<div class="kv">` +
+    `<div class="k">${esc(c.recipient)} flies again without the swap</div><div class="v">${d(i.spare_ready_days)}</div>` +
+    `<div class="k">${esc(c.donor)} would fly again anyway</div><div class="v">${i.donor_free_days === 0 ? "flying today" : d(i.donor_free_days)}</div>` +
+    `<div class="k">Recipient days gained</div><div class="v">${sgn(c.recipient_days_gained, 1)}</div>` +
+    `<div class="k">Donor downtime it creates</div><div class="v">−${c.donor_downtime_days.toFixed(1)}</div>` +
+    `<div class="k">Re-failure risk on the moved part <span title="Modelled assumption">(modelled)</span></div><div class="v">+${(100 * c.refailure_risk_delta).toFixed(1)}% · −${c.refailure_expected_days.toFixed(1)}</div>` +
+    `<div class="k">Extra labour</div><div class="v">${c.extra_manhours} man-h</div>` +
+    `<div class="k tot">Net over ${c.lookahead_days} days</div><div class="v tot">${sgn(net, 1)}</div></div>` +
+    `<p class="fine">${c.assumptions.map(esc).join(" ")}</p>`;
+}
+function renderCann() {
+  const cs = S.cannibalisation.candidates;
+  $("#cann-h-days").textContent = S.cannibalisation.lookahead_days;
+  const box = $("#cann");
+  if (!cs.length) { box.innerHTML = `<p class="cann-verdict">No aircraft is waiting on a part today in this scenario, so there is nothing to cannibalise. Ground fewer aircraft or reset the scenario.</p>`; return; }
+  const recips = [...new Set(cs.map((c) => c.recipient + "|" + c.part))];
+  if (!cannSel || !cs.some((c) => c.recipient === cannSel.recipient && c.donor === cannSel.donor && c.part === cannSel.part)) cannSel = cs[0];
+  const donors = cs.filter((c) => c.recipient === cannSel.recipient && c.part === cannSel.part);
+  box.innerHTML = `<div class="cann-pick"><div><label for="c-rec">Waiting aircraft</label><select id="c-rec">${recips.map((r) => { const [t, p] = r.split("|"); return `<option value="${r}" ${t === cannSel.recipient && p === cannSel.part ? "selected" : ""}>${t} · ${esc(SHORT[p] || p)}</option>`; }).join("")}</select></div>` +
+    `<div><label for="c-don">Donor</label><select id="c-don">${donors.map((c) => `<option value="${c.donor}" ${c.donor === cannSel.donor ? "selected" : ""}>${c.donor} · ${sgn(c.net_aircraft_days, 1)}</option>`).join("")}</select></div>` +
+    `</div>` +
+    `<div id="cann-body">${cannHTML(cannSel)}</div>`;
+  $("#c-rec").addEventListener("change", (e) => { const [t, p] = e.target.value.split("|"); cannSel = cs.find((c) => c.recipient === t && c.part === p); renderCann(); });
+  $("#c-don").addEventListener("change", (e) => { cannSel = donors.find((c) => c.donor === e.target.value); renderCann(); });
+}
+
+// ---------- abstention gate ----------
+function renderGate() {
+  const L = S.prognosis.lrus.filter((x) => x.status !== "monitor");
+  const c = S.prognosis.counts;
+  $("#gate-counts").textContent = `${c.order_now} order now · ${c.inspect} inspect · ${c.monitor} monitored`;
+  if (!L.length) { $("#gate").innerHTML = `<p class="sub">No part's interval reaches its decision window in this scenario.</p>`; return; }
+  const maxD = Math.max(60, Math.ceil(Math.max(...L.map((x) => Math.max(x.rul_hi, x.decision_window_days))) / 20) * 20);
+  const X = (v) => (100 * Math.min(v, maxD) / maxD) + "%";
+  let html = L.map((x) => `<div class="gate-row ${x.status === "inspect" ? "inspect" : ""}" title="${esc(x.part_name)}: ${x.rul_lo.toFixed(0)}–${x.rul_hi.toFixed(0)} days; window ${x.decision_window_days.toFixed(0)} days">` +
+    `<div class="who">${x.tail} <small>${esc(x.part.slice(3))}</small></div>` +
+    `<div class="gate-track"><div class="gate-win" style="width:${X(x.decision_window_days)}"></div>` +
+    `<div class="gate-iv" style="left:${X(x.rul_lo)};width:calc(${X(x.rul_hi)} - ${X(x.rul_lo)})"></div><div class="gate-pt" style="left:${X(x.rul_point)}"></div></div>` +
+    `<div class="st">${x.status === "inspect" ? "inspect" : "order now"}</div></div>`).join("");
+  const ticks = [];
+  for (let v = 0; v <= maxD; v += 20) ticks.push(`<span style="left:${100 * v / maxD}%">${v}</span>`);
+  html += `<div class="gate-axis"><div></div><div class="ax">${ticks.join("")}</div><div style="text-align:right">days</div></div>`;
+  html += `<div class="gate-key"><span><i style="width:14px;height:10px;background:color-mix(in srgb, var(--ink) 11%, transparent);border-right:2px solid var(--ink-3)"></i>decision window</span>` +
+    `<span><i style="width:18px;height:6px;border-radius:3px;background:var(--ink-2)"></i>90% interval, narrow enough: order now</span>` +
+    `<span><i style="width:18px;height:6px;border-radius:3px;background:var(--c-spares)"></i>wider than the window: model abstains</span>` +
+    `<span><i style="width:2px;height:12px;background:var(--ink)"></i>point estimate</span></div>`;
+  $("#gate").innerHTML = html;
+}
+
+// ---------- spares ----------
+function renderSpares() {
+  const all = S.spares;
+  const rows = all.filter((r) => r.aircraft_days_unlocked > 0 || r.sortie_days_unlocked > 0);
+  const max = Math.max(1, ...rows.map((r) => r.aircraft_days_unlocked));
+  $("#spares").innerHTML = `<thead><tr><th>Part</th><th>Base</th><th class="n">On shelf</th><th class="n">Lead time</th><th class="n">Projected stock-outs</th><th class="n">Sortie-days</th><th class="n">Aircraft-days</th><th style="width:30%"></th></tr></thead><tbody>` +
+    (rows.length ? rows.map((r) => `<tr><td class="strong">${esc(r.part_name)} <span class="mono" style="color:var(--ink-3);font-size:11px">${esc(r.part)}</span></td><td>${r.base}</td><td class="n">${r.on_hand}</td><td class="n">${r.lead_time_days} d</td><td class="n">${r.projected_stockouts}</td>` +
+      `<td class="n strong">${sgn(r.sortie_days_unlocked)}</td><td class="n strong">${sgn(r.aircraft_days_unlocked)}</td><td><div class="bar" style="width:${100 * Math.max(0, r.aircraft_days_unlocked) / max}%"></div></td></tr>`).join("")
+      : `<tr><td colspan="8">No single extra spare changes the projection in this scenario.</td></tr>`) + `</tbody>`;
+  $("#spares-note").textContent = `${all.length - rows.length} of ${all.length} stock locations would unlock nothing with one more unit: the shelf already covers every projected failure there, or the failure falls after the horizon. Failure timeline held fixed (first-order replay).`;
+}
+
+// ---------- depot ----------
+function renderDepot() {
+  const d = S.depot, H = S.horizon_days;
+  const X = (v) => (100 * Math.max(0, Math.min(v, H)) / H) + "%";
+  const W = (a, b) => `calc(${X(b)} - ${X(a)})`;
+  $("#dp-sub").innerHTML = `${Object.entries(d.depots).map(([k, v]) => `${k}: ${v.bays} bay${v.bays > 1 ? "s" : ""}`).join(", ")}, one induction crew each. Mean wait past the due date: ${d.mean_queue_days.baseline.toFixed(1)} days under current practice, ${d.mean_queue_days.plan.toFixed(1)} under the plan.`;
+  let html = d.inductions.map((r) => {
+    const b = r.baseline, p = r.plan;
+    let s = `<div class="g-row"><div class="who">${r.tail}</div><div class="g-track">`;
+    if (b) { if (b.start > r.due) s += `<div class="g-late" style="left:${X(r.due)};width:${W(r.due, b.start)}"></div>`; s += `<div class="g-bar prac" style="left:${X(b.start)};width:${W(b.start, b.start + r.duration)}" title="Current practice: ${b.depot} from day ${b.start}"></div>`; }
+    if (p) s += `<div class="g-bar plan" style="left:${X(p.start)};width:${W(p.start, p.start + r.duration)}" title="Plan: ${p.depot} from day ${p.start}${p.start >= H ? " (after the horizon)" : ""}"></div>`;
+    s += `<div class="g-due" style="left:${X(r.due)}" title="Due day ${r.due}"></div></div></div>`;
+    return s;
+  }).join("");
+  html += `<div class="gate-key"><span><i style="width:18px;height:7px;background:var(--practice);opacity:.55"></i>current practice</span><span><i style="width:18px;height:7px;background:var(--plan)"></i>plan</span><span><i style="width:2px;height:12px;background:var(--c-depot)"></i>due date</span><span><i style="width:18px;height:7px;background:repeating-linear-gradient(90deg,var(--c-depot) 0 2px,transparent 2px 4px)"></i>waiting for a bay</span></div>`;
+  $("#gantt").innerHTML = html;
+}
+
+// ---------- metrics ----------
+function renderMetrics() {
+  const m = S.metrics;
+  if (!m || !m.models || m.models.flightline.median_lead_over_window == null) { $("#cmp").innerHTML = `<div><p class="sub">Run <span class="mono">python -m flightline.seed</span> to compute the comparison.</p></div>`; return; }
+  const f = m.models.flightline, s = m.models.short_horizon, bt = m.backtest;
+  const col = (x, ours, bt1) => `<div class="${ours ? "ours" : ""}"><h3>${esc(x.name)}</h3>` +
+    `<div class="big">${pct(x.aph, 0)}</div><span class="label">APH: failures warned in time</span>` +
+    `<div class="kv">` +
+    `<div class="k">RMSE, ${esc(x.rmse_target)}</div><div class="v">${x.rmse_cycles.toFixed(1)} cycles</div>` +
+    `<div class="k">RMSE, last ${m.cap_cycles} cycles before failure</div><div class="v">${x.rmse_last_cycles.toFixed(1)} cycles</div>` +
+    `<div class="k">Median warning lead ÷ decision window</div><div class="v">${x.median_lead_over_window.toFixed(2)}×</div>` +
+    `<div class="k">Aircraft-days lost to late warnings, per 100 failures</div><div class="v">${x.aircraft_days_lost_per_100_failures.toFixed(0)}</div>` +
+    (bt1 ? `<div class="k tot">Backtest: sorties lost in 90 days</div><div class="v tot">${bt1.sortie_days_lost}</div>` : "") +
+    `</div></div>`;
+  $("#cmp").innerHTML = col(s, false, bt && bt.short_horizon) + col(f, true, bt && bt.flightline);
+  const sAcc = s.rmse_last_cycles < f.rmse_last_cycles;
+  $("#ft-note").textContent = m.fine_tuning.length ? `APH at each size: ${m.fine_tuning.map((r) => `${r.labelled_failures} → ${pct(r.aph, 0)}`).join(", ")}. With few labelled failures the conformal interval stays honest by warning earlier; more data tightens it toward the window. Subsampled from the ${m.source === "SYNTHETIC SCENARIO" ? "synthetic" : m.source} training fleet.` : "";
+  $("#honest").innerHTML =
+    `<div><h3>Read the two columns together</h3><p>${sAcc ? `The short-horizon model is more accurate near failure (${s.rmse_last_cycles.toFixed(1)} vs ${f.rmse_last_cycles.toFixed(1)} cycles RMSE)` : `Its headline RMSE of ${s.rmse_cycles.toFixed(1)} cycles looks far better`}, and it still loses: it cannot see further than ${m.cap_cycles} cycles, about ${s.warns_up_to_days.toFixed(0)} days, and most spares take longer than that to arrive.</p></div>` +
+    `<div><h3>What is real here</h3><p>${S.provenance.real_data ? `Degradation trained and tested on ${esc(S.provenance.degradation)}.` : "The method is real; the data is not."} Fleet, stock, depots and sorties are a synthetic scenario (seed ${S.provenance.seed}). Every number on this page is computed from it. Nothing is typed in. Tail numbers and bases are placeholders.</p></div>` +
+    `<div><h3>What carries over to a real fleet</h3><p>Swap the degradation model and everything above it stays: the twin, the simulator, the attribution, the optimiser, the cannibalisation price and the abstention gate. Conformal calibration needs only a held-out set of real failures to keep its 90% promise.</p></div>`;
+}
+
+// ---------- charts ----------
+function chartDefaults() {
+  Chart.defaults.font.family = '"B612", system-ui, sans-serif';
+  Chart.defaults.font.size = 11;
+  Chart.defaults.color = css("--ink-3");
+  Chart.defaults.borderColor = css("--rule");
+  Chart.defaults.animation = false;
+  Chart.defaults.plugins.legend.labels.boxWidth = 14;
+  Chart.defaults.plugins.legend.labels.boxHeight = 2;
+  Chart.defaults.plugins.tooltip.backgroundColor = css("--panel-2");
+  Chart.defaults.plugins.tooltip.titleColor = css("--ink");
+  Chart.defaults.plugins.tooltip.bodyColor = css("--ink-2");
+  Chart.defaults.plugins.tooltip.borderColor = css("--rule-strong");
+  Chart.defaults.plugins.tooltip.borderWidth = 1;
+}
+function mk(id, cfg) {
+  if (charts[id]) charts[id].destroy();
+  charts[id] = new Chart(document.getElementById(id), cfg);
+}
+function renderCharts() {
+  if (!window.Chart) return;
+  chartDefaults();
+  const d = S.daily;
+  const plan = css("--plan"), prac = css("--practice"), tasked = css("--tasked");
+  mk("daily", {
+    type: "line",
+    data: { labels: d.day, datasets: [
+      { label: "Tasked", data: d.tasked, borderColor: tasked, borderWidth: 1.5, borderDash: [3, 3], pointRadius: 0, stepped: "middle" },
+      { label: "Current practice", data: d.available_baseline, borderColor: prac, borderWidth: 2, pointRadius: 0, stepped: "middle" },
+      { label: "FLIGHTLINE plan", data: d.available_plan, borderColor: plan, borderWidth: 2, pointRadius: 0, stepped: "middle" },
+    ] },
+    options: { responsive: true, maintainAspectRatio: false, interaction: { mode: "index", intersect: false },
+      plugins: { legend: { position: "top", align: "start" }, tooltip: { callbacks: { title: (it) => "Day " + it[0].label } } },
+      scales: { x: { grid: { display: false }, ticks: { callback: (v) => (v % 14 === 0 ? "D" + v : ""), autoSkip: false, maxRotation: 0 } },
+        y: { suggestedMin: 0, suggestedMax: 24, grid: { color: css("--rule") }, title: { display: true, text: "aircraft" } } } },
+  });
+  const m = S.metrics;
+  if (!m || !m.per_part || !m.fine_tuning) return;
+  const parts = Object.keys(m.per_part).sort((a, b) => m.per_part[a].window_days - m.per_part[b].window_days);
+  mk("aphpart", {
+    type: "bar",
+    data: { labels: parts.map((p) => [SHORT[p] || p, m.per_part[p].window_days + " d"]),
+      datasets: [
+        { label: "Short-horizon", data: parts.map((p) => 100 * m.per_part[p].short_horizon), backgroundColor: prac, borderRadius: 3, barPercentage: .8, categoryPercentage: .7 },
+        { label: "FLIGHTLINE", data: parts.map((p) => 100 * m.per_part[p].flightline), backgroundColor: plan, borderRadius: 3, barPercentage: .8, categoryPercentage: .7 },
+      ] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "top", align: "start" },
+      tooltip: { callbacks: { label: (c) => `${c.dataset.label}: ${c.raw.toFixed(0)}% warned in time` } } },
+      scales: { x: { grid: { display: false }, ticks: { font: { size: 10 }, maxRotation: 0, autoSkip: false } }, y: { min: 0, max: 100, ticks: { callback: (v) => v + "%" } } } },
+  });
+  mk("finetune", {
+    type: "line",
+    data: { labels: m.fine_tuning.map((r) => r.labelled_failures), datasets: [
+      { label: "Median warning lead ÷ window", data: m.fine_tuning.map((r) => r.median_lead_over_window), borderColor: plan, borderWidth: 2, pointRadius: 4, pointBackgroundColor: plan, pointBorderColor: css("--panel"), pointBorderWidth: 2 },
+    ] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false },
+      tooltip: { callbacks: { title: (it) => it[0].label + " labelled failures", label: (c) => `warns ${c.raw.toFixed(2)}× the window ahead · APH ${pct(m.fine_tuning[c.dataIndex].aph, 0)}` } } },
+      scales: { x: { title: { display: true, text: "labelled run-to-failure events" }, grid: { display: false } },
+        y: { suggestedMin: 1, title: { display: true, text: "× decision window" }, ticks: { callback: (v) => v.toFixed(1) + "×" } } } },
+  });
+}
+
+// ---------- go ----------
+(async function boot() {
+  try {
+    const r = await fetch("/api/state");
+    if (!r.ok) throw new Error("the server answered " + r.status);
+    S = await r.json();
+    if (document.fonts && document.fonts.ready) await document.fonts.ready;
+    render();
+  } catch (e) {
+    $("#skeleton").innerHTML = `<span class="err">Could not load the fleet: ${esc(e.message)}. Is the server running? Start it with <span class="mono">uvicorn flightline.api:app</span>.</span>`;
+  }
+})();
+</script>
+</body>
+</html>

@@ -32,6 +32,7 @@ import numpy as np
 from . import config
 from .data import DegradationSet, Unit, World
 
+METRICS_VERSION = 2  # bump when the saved fields change, so stale caches are ignored
 CAP_CYCLES = 15.0
 FINE_TUNE_SIZES = (12, 24, 48, 96, 144)
 
@@ -198,7 +199,7 @@ def _path():
 
 def save(m: dict, fp: str) -> None:
     config.MODEL_DIR.mkdir(parents=True, exist_ok=True)
-    _path().write_text(json.dumps({"fingerprint": fp, "metrics": m}, indent=1))
+    _path().write_text(json.dumps({"fingerprint": fp, "version": METRICS_VERSION, "metrics": m}, indent=1))
 
 
 def load_cached(deg: DegradationSet) -> dict | None:
@@ -212,4 +213,5 @@ def load_cached(deg: DegradationSet) -> dict | None:
         blob = json.loads(p.read_text())
     except (OSError, json.JSONDecodeError):
         return None
-    return blob["metrics"] if blob.get("fingerprint") == fingerprint(deg) else None
+    fresh = blob.get("fingerprint") == fingerprint(deg) and blob.get("version") == METRICS_VERSION
+    return blob["metrics"] if fresh else None
