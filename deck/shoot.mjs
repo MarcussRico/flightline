@@ -6,7 +6,7 @@ const post = (body) => p.evaluate(async (bd) => { await fetch('/api/scenario', {
 await p.goto('http://127.0.0.1:8000/'); await post({}); await p.reload();
 await p.waitForSelector('#app:not([hidden])'); await p.evaluate(() => document.fonts.ready); await p.waitForTimeout(500);
 await p.screenshot({ path: `${OUT}/dashboard.png` });
-await p.addStyleTag({ content: '.top{position:static!important} .row>.panel{align-self:start} .strip{position:static!important}' }); await p.waitForTimeout(200);
+await p.addStyleTag({ content: '.topbar{position:static!important} section.card{align-self:start}' }); await p.waitForTimeout(200);
 const sec = (sel) => p.locator(sel).first();
 await sec('section[aria-labelledby="board-h"]').screenshot({ path: `${OUT}/board.png` });
 await sec('section[aria-labelledby="wf-h"]').screenshot({ path: `${OUT}/waterfall.png` });
@@ -22,7 +22,7 @@ await p.click('#actions .act:first-child .why');
 await sec('section[aria-labelledby="act-h"]').screenshot({ path: `${OUT}/actions.png` });
 // grounded scenario via the real UI
 await p.click('.chip[data-tail="TAIL-01"]'); await p.click('.chip[data-tail="TAIL-03"]');
-await p.waitForFunction(() => document.querySelector('#gcount').textContent === '2 grounded' && document.querySelector('#solve').textContent.includes('Re-solved'), null, { timeout: 15000 });
+await p.waitForFunction(() => document.querySelector('#gcount').textContent === '2 grounded' && document.querySelector('#solve').textContent.includes('Solved in'), null, { timeout: 15000 });
 await p.waitForTimeout(400);
 await sec('section[aria-labelledby="cann-h"]').screenshot({ path: `${OUT}/cann_grounded.png` });
 await sec('section[aria-labelledby="act-h"]').screenshot({ path: `${OUT}/actions_grounded.png` });

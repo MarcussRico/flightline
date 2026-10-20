@@ -75,7 +75,11 @@ function pngSize(file) {
 }
 function img(slide, file, x, y, w, _pxw, _pxh, o = {}) {
   const [pxw, pxh] = pngSize(file);  // always the file's own size, so a re-shot screenshot keeps its aspect
-  const h = w * pxh / pxw;
+  let h = w * pxh / pxw;
+  if (o.maxH && h > o.maxH) {  // too tall for its slot: fit to height, keep the right edge where it was
+    const w2 = o.maxH * pxw / pxh;
+    x += w - w2; w = w2; h = o.maxH;
+  }
   slide.addImage({ path: SHOT(file), x, y, w, h, objectName: nm("shot"), altText: o.alt || file });
   if (o.frame !== false) slide.addShape(pres.shapes.RECTANGLE, { x, y, w, h, fill: { type: "none" }, line: { color: "9AA6B1", width: 0.75 }, objectName: nm("shot-frame") });
   return h;
@@ -114,10 +118,16 @@ pres.addSection({ title: "Title" });
     ["Problem Statement ID: ", "SIH26249"],
     ["Problem Statement Title: ", "Air Power — Predictive Maintenance & Fleet Availability"],
     ["Organisation: ", "Ministry of Defence"],
-    ["Idea: ", "FLIGHTLINE — Fleet Availability Twin"],
+    ["Idea: ", "WORDMARK"],
     ["Team Name: ", "Code Byte"],
   ];
-  s.addText(rows.map(([k, v], i) => [
+  const MAG = "A3196F";
+  s.addText(rows.map(([k, v], i) => v === "WORDMARK" ? [
+    { text: k, options: { bold: true, bullet: { indent: 18 } } },
+    { text: "FLIGHT", options: { bold: true, charSpacing: 2 } },
+    { text: "LINE", options: { bold: true, charSpacing: 2, color: MAG } },
+    { text: " — Fleet Availability Twin", options: { bold: false, breakLine: i < rows.length - 1 } },
+  ] : [
     { text: k, options: { bold: true, bullet: { indent: 18 } } },
     { text: v, options: { bold: false, breakLine: i < rows.length - 1 } },
   ]).flat(), { isTextBox: true, x: 0.55, y: 2.3, w: 6.4, h: 4.3, fontFace: "Arial", fontSize: 20, color: "000000", paraSpaceAfter: 14, valign: "top", margin: 0, objectName: nm("details") });
@@ -129,7 +139,7 @@ pres.addSection({ title: "Problem and idea" });
 {
   const s = content("Problem and idea");
   s.addText("IDEA TITLE", { placeholder: "title" });
-  text(s, "FLIGHTLINE — Fleet Availability Twin", { x: 0.45, y: 1.2, w: 12.4, h: 0.38, fontSize: 20, bold: true });
+  text(s, [{ text: "FLIGHT", options: { charSpacing: 2 } }, { text: "LINE", options: { charSpacing: 2, color: "A3196F" } }, { text: " — Fleet Availability Twin", options: {} }], { x: 0.45, y: 1.2, w: 12.4, h: 0.38, fontSize: 20, bold: true });
   text(s, "A decision layer that joins the four maintenance silos, predicts how many sortie-days the fleet is about to lose, and names the action that saves the most of them — scored in aircraft-days, not RMSE.", { x: 0.45, y: 1.58, w: 12.4, h: 0.55, fontSize: 14, color: "222222" });
   const X = [0.45, 4.68, 8.91], BW = 4.0, Y = 2.3, BH = 4.5;
   X.forEach((x) => boxed(s, x, Y, BW, BH));
@@ -327,8 +337,8 @@ pres.addSection({ title: "How it works" });
     text(s, (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(v).toFixed(1), { x: mx + 2.4, y, w: 1.25, h: 0.66, fontSize: 24, bold: true, align: "right", valign: "middle", color: v > 0 ? C.accent1 : C.accent3 });
   });
   text(s, "aircraft-days over 30 days", { x: mx, y: 6.24, w: mw, h: 0.3, fontSize: 10.5, color: HEX.grey, align: "right" });
-  const ih = img(s, "cann_grounded.png", 9.0, 1.22, 3.88, 1004, 1244, { alt: "FLIGHTLINE cannibalisation card: +1 aircraft in 2 days, +28.0 aircraft-days over 30" });
-  text(s, "Live card in the prototype (TAIL-01 and TAIL-03 grounded)", { x: 9.0, y: 1.22 + ih + 0.06, w: 3.88, h: 0.3, fontSize: 10, color: HEX.grey });
+  const ih = img(s, "cann_grounded.png", 9.0, 1.22, 3.88, 1004, 1244, { maxH: 5.2, alt: "FLIGHTLINE cannibalisation card: +1 aircraft in 2 days, +28.0 aircraft-days over 30" });
+  text(s, "Live card in the prototype (TAIL-01 and TAIL-03 grounded)", { x: 9.0, y: 1.22 + ih + 0.06, w: 3.88, h: 0.3, fontSize: 10, color: HEX.grey, align: "right" });
   s.addNotes("It is both necessary and corrosive, so we do not ban it — we price it. The officer on this panel has signed cannibalisation authorisations; nobody has shown them this number. Robbing a flying aircraft is always net negative: it only moves the hole. Robbing an aircraft that is down anyway can pay handsomely.");
 }
 
