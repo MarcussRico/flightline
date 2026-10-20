@@ -1,0 +1,96 @@
+@font-face { font-family: "Geist"; src: url("/static/fonts/Geist-var.woff2") format("woff2"); font-weight: 400 700; font-display: block; }
+@font-face { font-family: "Geist Mono"; src: url("/static/fonts/GeistMono-var.woff2") format("woff2"); font-weight: 400 600; font-display: block; }
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Design tokens. Magenta ("plan") is reserved for the FLIGHTLINE plan, as the planned
+   route on an aeronautical chart. Down-reason hues validated for colour-vision deficiency. */
+@layer base {
+  :root {
+    color-scheme: light;
+    --bg: 246 247 249; --panel: 255 255 255; --subtle: 242 244 247;
+    --line: 229 231 235; --line-strong: 209 213 219;
+    --fg: 17 24 39; --fg-2: 75 85 99; --fg-3: 107 114 128;
+    --plan: 163 25 111; --practice: 148 156 166;
+    --spares: 184 134 11; --depot: 47 109 181; --removal: 200 66 59; --grounded: 139 132 120; --planned: 206 212 219;
+  }
+  [data-theme="dark"] {
+    color-scheme: dark;
+    --bg: 10 13 17; --panel: 16 20 25; --subtle: 22 27 33;
+    --line: 35 41 50; --line-strong: 52 60 71;
+    --fg: 236 238 241; --fg-2: 175 182 191; --fg-3: 128 137 148;
+    --plan: 226 113 185; --practice: 125 135 143;
+    --spares: 173 143 34; --depot: 90 136 214; --removal: 217 80 110; --grounded: 111 106 96; --planned: 64 74 86;
+  }
+  html { -webkit-text-size-adjust: 100%; }
+  body { @apply bg-bg text-fg font-sans text-[14px] leading-[1.5] antialiased; font-feature-settings: "tnum" 1, "cv11" 1; }
+  :focus-visible { outline: 2px solid rgb(var(--plan)); outline-offset: 2px; }
+}
+
+@layer components {
+  .card { @apply bg-panel border border-line rounded-xl shadow-card min-w-0; }
+  .card-head { @apply flex flex-wrap items-start justify-between gap-4 px-5 pt-4 pb-3; }
+  .card-title { @apply text-[15px] font-semibold tracking-[-0.01em] text-fg; }
+  .card-desc { @apply mt-0.5 text-[13px] text-fg-3 max-w-[72ch]; }
+  .card-body { @apply px-5 pb-5; }
+  .btn { @apply inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-line bg-panel text-[13px] font-medium text-fg-2 hover:text-fg hover:bg-subtle transition-colors; }
+  .btn-icon { @apply inline-flex items-center justify-center h-8 w-8 rounded-md border border-line bg-panel text-fg-2 hover:text-fg hover:bg-subtle; }
+  .nav-link { @apply flex items-center gap-2.5 h-8 px-2.5 rounded-md text-[13px] font-medium text-fg-2 hover:bg-subtle hover:text-fg; }
+  .nav-link.active { @apply bg-subtle text-fg; }
+  .nav-link svg { @apply h-4 w-4 flex-none text-fg-3; }
+  .nav-link.active svg { @apply text-plan; }
+  .label { @apply text-[12px] font-medium text-fg-3; }
+  .chip { @apply h-7 rounded-md border border-line bg-panel font-mono text-[11px] text-fg-2 hover:border-line-strong hover:text-fg; }
+  .chip[aria-pressed="true"] { @apply bg-fg text-panel border-fg; }
+  .seg { @apply inline-flex rounded-lg bg-subtle p-0.5 border border-line; }
+  .seg button { @apply h-7 px-3 rounded-md text-[13px] font-medium text-fg-3; }
+  .seg button[aria-pressed="true"] { @apply bg-panel text-fg shadow-card; }
+  .seg button[data-view="plan"][aria-pressed="true"] { @apply text-plan; }
+  .kpi { @apply card px-4 py-3.5; }
+  .delta { @apply inline-flex items-center rounded-md px-1.5 py-0.5 text-[12px] font-medium; }
+  .delta-up { color: rgb(var(--plan)); background: rgb(var(--plan) / 0.09); }
+  .tbl { @apply w-full text-[13px]; }
+  .tbl th { @apply text-left font-medium text-fg-3 text-[12px] px-3 py-2 border-b border-line whitespace-nowrap bg-subtle/60; }
+  .tbl td { @apply px-3 py-2.5 border-b border-line text-fg-2 whitespace-nowrap; }
+  .tbl tr:last-child td { @apply border-b-0; }
+  .num { @apply text-right tabular-nums; }
+
+  /* line board */
+  .track { position: relative; height: 22px; border-radius: 4px; background-color: rgb(var(--subtle));
+    background-image: linear-gradient(90deg, rgb(var(--line)) 1px, transparent 1px); background-size: calc(100% / 90 * 7) 100%; }
+  .bar-seg { position: absolute; top: 3px; bottom: 3px; border-radius: 3px; display: flex; align-items: center; overflow: hidden;
+    padding: 0 6px; font-size: 11px; font-weight: 600; color: #fff; white-space: nowrap; }
+  .bar-seg span { flex: none; }
+  .bar-seg.k0 { background: repeating-linear-gradient(135deg, rgb(var(--grounded)) 0 4px, rgb(var(--grounded) / .55) 4px 7px); }
+  .bar-seg.k1 { background: rgb(var(--planned)); color: rgb(var(--fg)); font-weight: 500; }
+  .bar-seg.k2 { background: rgb(var(--depot)); }
+  .bar-seg.k3 { background: rgb(var(--spares)); }
+  .bar-seg.k4 { background: repeating-linear-gradient(135deg, rgb(var(--removal)) 0 4px, rgb(var(--removal) / .5) 4px 7px); }
+  .bar-seg.k5 { background: rgb(var(--removal)); }
+  .bar-seg.k0 span, .bar-seg.k4 span { background: rgb(17 24 39 / .55); border-radius: 2px; padding: 0 3px; }
+  .won { position: absolute; bottom: -2px; height: 3px; border-radius: 2px; background: rgb(var(--plan)); }
+  .due { position: absolute; top: -4px; width: 0; height: 0; border-left: 4.5px solid transparent; border-right: 4.5px solid transparent;
+    border-top: 6px solid rgb(var(--fg)); transform: translateX(-4.5px); z-index: 2; }
+  .sw-hatch-removal { background: repeating-linear-gradient(135deg, rgb(var(--removal)) 0 3px, transparent 3px 5px); }
+  .wait { background: repeating-linear-gradient(90deg, rgb(var(--depot)) 0 2px, transparent 2px 4px); }
+  .sw-hatch-grounded { background: repeating-linear-gradient(135deg, rgb(var(--grounded)) 0 3px, transparent 3px 5px); }
+
+  .trace { @apply mt-2 ml-0 border-l-2 border-plan pl-3 space-y-1.5 text-[13px] text-fg-2; }
+  .act.extra { display: none; }
+  .actions.all .act.extra { display: grid; }
+  input[type="range"] { accent-color: rgb(var(--plan)); width: 100%; height: 18px; }
+  select.sel { @apply w-full h-9 rounded-md border border-line bg-panel px-2.5 text-[13px] text-fg; }
+  .tip { @apply fixed z-50 pointer-events-none rounded-md bg-fg text-panel px-2.5 py-2 text-[12px] shadow-pop max-w-[280px]; display: none; }
+}
+
+@media print {
+  body { background: #fff !important; }
+  .no-print, #app > :not(.print-keep), .print-keep > :not(#order-section) { display: none !important; }
+  .print-keep { display: block !important; }
+  .card { border: 0 !important; box-shadow: none !important; }
+  .print-only { display: block !important; }
+  .act { display: grid !important; break-inside: avoid; }
+  .trace { display: block !important; }
+}

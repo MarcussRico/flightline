@@ -3,491 +3,175 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>FLIGHTLINE · Fleet availability twin</title>
-<style>
-@font-face { font-family: "Barlow Condensed"; src: url("/static/fonts/BarlowCondensed-500.woff2") format("woff2"); font-weight: 500; font-display: block; }
-@font-face { font-family: "Barlow Condensed"; src: url("/static/fonts/BarlowCondensed-600.woff2") format("woff2"); font-weight: 600; font-display: block; }
-@font-face { font-family: "Barlow Condensed"; src: url("/static/fonts/BarlowCondensed-700.woff2") format("woff2"); font-weight: 700; font-display: block; }
-@font-face { font-family: "Barlow"; src: url("/static/fonts/Barlow-400.woff2") format("woff2"); font-weight: 400; font-display: block; }
-@font-face { font-family: "Barlow"; src: url("/static/fonts/Barlow-400i.woff2") format("woff2"); font-weight: 400; font-style: italic; font-display: block; }
-@font-face { font-family: "Barlow"; src: url("/static/fonts/Barlow-500.woff2") format("woff2"); font-weight: 500; font-display: block; }
-@font-face { font-family: "Barlow"; src: url("/static/fonts/Barlow-600.woff2") format("woff2"); font-weight: 600; font-display: block; }
-@font-face { font-family: "B612 Mono"; src: url("/static/fonts/B612Mono-Regular.woff2") format("woff2"); font-weight: 400; font-display: block; }
-
-/* An aeronautical chart: cool paper, navy ink, and one magenta line.
-   Magenta is reserved for the FLIGHTLINE plan, as it marks the planned route on a chart. */
-:root {
-  color-scheme: light;
-  --paper: #eceee9;
-  --sheet: #fafbf8;
-  --sheet-2: #f2f4f0;
-  --rule: #d8dcd5;
-  --rule-strong: #b4bab2;
-  --grat: rgba(21, 32, 43, .045);
-  --ink: #15202b;
-  --ink-2: #434f5b;
-  --ink-3: #6c7682;
-  --magenta: #a3196f;
-  --practice: #8a939b;
-  --c-spares: #b8860b;
-  --c-depot: #2f6db5;
-  --c-removal: #c8423b;
-  --c-grounded: #8b8478;
-  --c-planned: #c3c9cc;
-  --track: #f3f5f1;
-  --on-bar: #ffffff;
-  --shadow: 0 1px 0 rgba(21, 32, 43, .04), 0 8px 24px -16px rgba(21, 32, 43, .18);
-  --grain: .035;
-}
-:root[data-theme="dark"] {
-  color-scheme: dark;
-  --paper: #0f151b;
-  --sheet: #151c23;
-  --sheet-2: #1a222a;
-  --rule: #26313b;
-  --rule-strong: #3a4753;
-  --grat: rgba(232, 234, 228, .035);
-  --ink: #e8eae4;
-  --ink-2: #b4b9b3;
-  --ink-3: #87918f;
-  --magenta: #e271b9;
-  --practice: #7d878f;
-  --c-spares: #ad8f22;
-  --c-depot: #5a88d6;
-  --c-removal: #d9506e;
-  --c-grounded: #6f6a60;
-  --c-planned: #45515b;
-  --track: #121920;
-  --on-bar: #0f151b;
-  --shadow: none;
-  --grain: .05;
-}
-
-* { box-sizing: border-box; }
-html { -webkit-text-size-adjust: 100%; }
-body {
-  margin: 0; color: var(--ink); background-color: var(--paper);
-  background-image: linear-gradient(var(--grat) 1px, transparent 1px), linear-gradient(90deg, var(--grat) 1px, transparent 1px);
-  background-size: 96px 96px;
-  font: 400 15px/1.5 "Barlow", system-ui, sans-serif;
-  font-variant-numeric: tabular-nums lining-nums;
-}
-body::before {
-  content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 0; opacity: var(--grain);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-}
-button, input, select { font: inherit; color: inherit; }
-:focus-visible { outline: 2px solid var(--magenta); outline-offset: 2px; }
-.id { font-family: "B612 Mono", ui-monospace, monospace; font-size: .86em; letter-spacing: -.01em; }
-.wrap { position: relative; z-index: 1; max-width: 1480px; margin: 0 auto; padding: 0 32px; }
-
-/* ---------- header ---------- */
-header.top { position: relative; z-index: 2; }
-.top .wrap { display: flex; align-items: center; gap: 20px; padding-top: 18px; padding-bottom: 14px; }
-.brand { display: flex; align-items: center; gap: 12px; text-decoration: none; color: inherit; }
-.brand svg { flex: none; }
-.brand b { font: 700 25px/1 "Barlow Condensed", sans-serif; letter-spacing: .07em; }
-.brand span { display: block; font-size: 13px; color: var(--ink-3); margin-top: 3px; }
-.top .grow { flex: 1; }
-.stamp { font: 600 12.5px/1 "Barlow Condensed", sans-serif; letter-spacing: .1em; text-transform: uppercase; color: var(--c-spares); border: 1.5px solid currentColor; border-radius: 3px; padding: 6px 9px 5px; white-space: nowrap; }
-.solve { font-size: 13.5px; color: var(--ink-3); white-space: nowrap; }
-.solve b { color: var(--ink); font-weight: 600; }
-.solve.busy b { color: var(--magenta); }
-.btn { background: var(--sheet); border: 1px solid var(--rule-strong); border-radius: 6px; padding: 7px 12px; cursor: pointer; font-size: 13.5px; font-weight: 500; color: var(--ink-2); }
-.btn:hover { color: var(--ink); border-color: var(--ink-3); }
-
-/* ---------- scenario strip ---------- */
-.strip { position: sticky; top: 0; z-index: 10; background: color-mix(in srgb, var(--sheet) 94%, transparent); backdrop-filter: blur(8px); border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
-.strip .wrap { display: flex; align-items: center; gap: 22px; padding-top: 10px; padding-bottom: 10px; flex-wrap: wrap; }
-.strip .lead { font: 600 16px/1.1 "Barlow Condensed", sans-serif; letter-spacing: .02em; }
-.strip .lead small { display: block; font: 400 12.5px/1.3 "Barlow", sans-serif; color: var(--ink-3); margin-top: 2px; }
-.ctl-label { font-size: 12.5px; font-weight: 600; color: var(--ink-2); display: flex; justify-content: space-between; gap: 10px; margin-bottom: 4px; }
-.ctl-label output { color: var(--ink); }
-.ground { display: flex; gap: 10px; }
-.base-group { display: flex; flex-direction: column; gap: 3px; }
-.base-group .bn { font-size: 11px; color: var(--ink-3); font-weight: 500; }
-.base-group .row { display: grid; grid-template-columns: repeat(8, 25px); gap: 3px; }
-.chip { height: 25px; border-radius: 5px; border: 1px solid var(--rule-strong); background: var(--sheet); cursor: pointer; font-family: "B612 Mono", monospace; font-size: 10.5px; color: var(--ink-2); padding: 0; }
-.chip:hover { border-color: var(--ink-3); color: var(--ink); }
-.chip[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--sheet); }
-.slider { width: 178px; }
-input[type=range] { width: 100%; accent-color: var(--magenta); margin: 2px 0 0; height: 20px; }
-.ticks { display: flex; justify-content: space-between; font-size: 11px; color: var(--ink-3); }
-
-/* ---------- sections ---------- */
-main { padding: 34px 0 60px; }
-#app > * + * { margin-top: 30px; }
-.sheet { background: var(--sheet); border: 1px solid var(--rule); border-radius: 12px; padding: 24px 28px 26px; box-shadow: var(--shadow); min-width: 0; }
-.pair { display: grid; gap: 30px; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
-.pair.wide-left { grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); }
-h2 { font: 600 27px/1.1 "Barlow Condensed", sans-serif; letter-spacing: .01em; margin: 0; }
-.kicker { font-size: 13px; font-weight: 600; color: var(--magenta); margin: 0 0 6px; }
-.deck { color: var(--ink-2); font-size: 15px; margin: 8px 0 20px; max-width: 74ch; }
-.head { display: flex; gap: 20px; align-items: flex-end; flex-wrap: wrap; justify-content: space-between; }
-
-/* ---------- hero ---------- */
-.hero { padding: 4px 0 0; }
-.hero-top { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 48px; align-items: end; }
-.hero h1 { font: 600 clamp(38px, 4.8vw, 64px)/1.0 "Barlow Condensed", sans-serif; letter-spacing: -.005em; margin: 0; max-width: 20ch; }
-.hero h1 em { font-style: normal; color: var(--magenta); }
-.hero .sub { font-size: 18px; color: var(--ink-2); margin: 16px 0 0; max-width: 70ch; }
-.hero .sub strong { color: var(--ink); font-weight: 600; }
-.scale { position: relative; margin: 40px 0 0; height: 160px; }
-.scale .bar { position: absolute; left: 0; right: 0; top: 74px; height: 8px; display: flex; border: 1.25px solid var(--ink); }
-.scale .bar i { flex: 1; }
-.scale .bar i:nth-child(odd) { background: var(--ink); }
-.scale .tick { position: absolute; top: 90px; transform: translateX(-50%); font: 500 13px/1 "Barlow Condensed", sans-serif; color: var(--ink-3); }
-.scale .leg { position: absolute; top: 64px; height: 0; border-top: 4px solid var(--magenta); border-radius: 2px; }
-.scale .leg .box { position: absolute; left: 50%; top: -48px; transform: translateX(-50%); white-space: nowrap; background: var(--sheet); border: 1.5px solid var(--magenta); color: var(--magenta); border-radius: 4px; padding: 5px 11px 4px; font: 600 16px/1.2 "Barlow Condensed", sans-serif; letter-spacing: .02em; }
-.scale .leg .box::after { content: ""; position: absolute; left: 50%; bottom: -7px; width: 10px; height: 10px; background: var(--sheet); border-right: 1.5px solid var(--magenta); border-bottom: 1.5px solid var(--magenta); transform: translateX(-50%) rotate(45deg); }
-.scale .wp { position: absolute; top: 56px; width: 0; }
-.scale .wp .mk { position: absolute; left: -11px; top: -1px; width: 22px; height: 22px; }
-.scale .wp .lab { position: absolute; top: 56px; white-space: nowrap; }
-.scale .wp.cur .lab { right: -11px; text-align: right; }
-.scale .wp.plan .lab { left: -11px; text-align: left; }
-.scale .wp .lab b { display: block; font: 600 34px/1 "Barlow Condensed", sans-serif; }
-.scale .wp .lab span { font-size: 13.5px; color: var(--ink-3); }
-.scale .wp.plan .lab b, .scale .wp.plan .lab span { color: var(--magenta); }
-.scale .ceil { position: absolute; top: 28px; height: 60px; border-left: 1.5px dashed var(--ink-3); }
-.scale .ceil > span { position: absolute; left: 8px; top: -4px; font-size: 13.5px; color: var(--ink-3); white-space: nowrap; }
-.scale .ceil.flip > span { left: auto; right: 8px; text-align: right; }
-.scale .ceil b { color: var(--ink); font-weight: 600; }
-.figs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border-top: 1.5px solid var(--ink); }
-.fig { padding: 14px 18px 16px 0; border-bottom: 1px solid var(--rule); }
-.fig:nth-child(even) { padding-left: 18px; border-left: 1px solid var(--rule); }
-.fig .k { font-size: 13.5px; color: var(--ink-3); font-weight: 500; }
-.fig .v { font: 600 32px/1.15 "Barlow Condensed", sans-serif; }
-.fig .v .to { color: var(--magenta); }
-.fig .d { font-size: 13px; color: var(--ink-3); }
-
-/* ---------- line board ---------- */
-.seg { display: inline-flex; border: 1px solid var(--rule-strong); border-radius: 7px; padding: 2px; background: var(--sheet-2); }
-.seg button { background: none; border: 0; border-radius: 5px; padding: 6px 12px; cursor: pointer; font-size: 13.5px; font-weight: 500; color: var(--ink-3); }
-.seg button[aria-pressed="true"] { background: var(--sheet); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.12); }
-.seg button[data-view="plan"][aria-pressed="true"] { color: var(--magenta); }
-.board-wrap { overflow-x: auto; padding: 4px 0; }
-.board { --row: 24px; display: grid; grid-template-columns: 70px 34px minmax(620px, 1fr); column-gap: 12px; align-items: center; }
-.axis { position: relative; height: 20px; }
-.axis span { position: absolute; bottom: 3px; font: 500 13px/1 "Barlow Condensed", sans-serif; color: var(--ink-3); white-space: nowrap; }
-.axis span.today { color: var(--magenta); font-weight: 600; }
-.colhead { font-size: 12px; color: var(--ink-3); font-weight: 500; align-self: end; padding-bottom: 3px; }
-.basehead { grid-column: 1 / -1; display: flex; gap: 10px; align-items: baseline; padding: 14px 0 6px; border-bottom: 1px solid var(--rule); margin-bottom: 4px; }
-.basehead b { font: 600 16px/1 "Barlow Condensed", sans-serif; letter-spacing: .06em; }
-.basehead span { font-size: 12.5px; color: var(--ink-3); }
-.tail { font-family: "B612 Mono", monospace; font-size: 11.5px; color: var(--ink-2); height: var(--row); display: flex; align-items: center; }
-.tail.grounded { color: var(--ink-3); text-decoration: line-through; }
-.risk { font: 500 15px/1 "Barlow Condensed", sans-serif; color: var(--ink-3); text-align: right; }
-.track { position: relative; height: var(--row); margin: 1px 0; border-radius: 4px; background-color: var(--track);
-  background-image: linear-gradient(90deg, var(--rule) 1px, transparent 1px); background-size: calc(100% / 90 * 7) 100%; }
-.bar-seg { position: absolute; top: 3px; bottom: 3px; border-radius: 3px; display: flex; align-items: center; overflow: hidden; padding: 0 6px; font-size: 11.5px; font-weight: 600; color: var(--on-bar); white-space: nowrap; }
-.bar-seg.k0 { background: repeating-linear-gradient(135deg, var(--c-grounded) 0 4px, color-mix(in srgb, var(--c-grounded) 65%, var(--sheet)) 4px 7px); }
-.bar-seg.k1 { background: var(--c-planned); color: var(--ink); font-weight: 500; }
-.bar-seg.k2 { background: var(--c-depot); }
-.bar-seg.k3 { background: var(--c-spares); }
-.bar-seg.k4 { background: repeating-linear-gradient(135deg, var(--c-removal) 0 4px, color-mix(in srgb, var(--c-removal) 55%, var(--sheet)) 4px 7px); }
-.bar-seg.k5 { background: var(--c-removal); }
-.bar-seg span { flex: none; }
-.bar-seg.k0 span, .bar-seg.k4 span { background: color-mix(in srgb, var(--ink) 55%, transparent); color: #fff; border-radius: 2px; padding: 0 3px; }
-.won { position: absolute; bottom: -2px; height: 3px; background: var(--magenta); border-radius: 2px; }
-.due { position: absolute; top: -4px; width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 7px solid var(--ink); transform: translateX(-5px); z-index: 2; }
-.miss-row { position: relative; height: 34px; border-top: 1px solid var(--rule); margin-top: 8px; }
-.miss-row i { position: absolute; bottom: 0; background: var(--c-removal); border-radius: 2px 2px 0 0; }
-.misslabel { grid-column: 1 / 3; font-size: 12px; color: var(--ink-3); align-self: end; line-height: 1.2; padding-bottom: 2px; }
-.legend { display: flex; flex-wrap: wrap; gap: 8px 22px; margin-top: 16px; font-size: 13.5px; color: var(--ink-2); }
-.legend .sw { display: inline-block; width: 18px; height: 10px; border-radius: 2px; margin-right: 7px; }
-.legend .n { color: var(--ink-3); margin-left: 4px; }
-.tip { position: fixed; z-index: 50; pointer-events: none; background: var(--ink); color: var(--sheet); border-radius: 6px; padding: 8px 11px; font-size: 13px; max-width: 300px; display: none; box-shadow: 0 10px 30px rgba(0,0,0,.25); }
-.tip b { font-weight: 600; }
-
-/* ---------- actions ---------- */
-.actions { list-style: none; margin: 0; padding: 0; }
-.act { display: grid; grid-template-columns: 34px minmax(0, 1fr) 110px; gap: 14px; padding: 16px 0; border-top: 1px solid var(--rule); }
-.act:first-child { border-top: 0; padding-top: 2px; }
-.act .rk { font: 600 30px/1 "Barlow Condensed", sans-serif; color: var(--rule-strong); }
-.act:first-child .rk { color: var(--magenta); }
-.act .t { font-weight: 600; font-size: 16.5px; line-height: 1.3; }
-.act .r { color: var(--ink-2); font-size: 14.5px; margin-top: 4px; }
-.act .meta { display: flex; gap: 14px; align-items: center; margin-top: 8px; flex-wrap: wrap; font-size: 13px; color: var(--ink-3); }
-.act .meta .kind { font-weight: 600; color: var(--ink-2); }
-.act .meta .kind.inspect { color: var(--c-spares); }
-.why { background: none; border: 0; padding: 0; color: var(--magenta); cursor: pointer; font-size: 13px; font-weight: 600; }
-.why:hover { text-decoration: underline; text-underline-offset: 3px; }
-.act .g { text-align: right; }
-.act .g .v { font: 600 36px/1 "Barlow Condensed", sans-serif; color: var(--magenta); }
-.act .g .u { font-size: 12.5px; color: var(--ink-3); margin-top: 2px; }
-.act .g .s { font-size: 13px; color: var(--ink-2); margin-top: 4px; }
-.act.extra { display: none; }
-.actions.all .act.extra { display: grid; }
-.trace { grid-column: 2 / -1; list-style: none; margin: 4px 0 0; padding: 2px 0 2px 16px; border-left: 2px solid var(--magenta); font-size: 14px; color: var(--ink-2); }
-.trace li { padding: 4px 0; }
-.trace .silo { display: block; font-size: 12px; font-weight: 600; color: var(--ink-3); }
-.more { margin-top: 12px; }
-
-/* ---------- cannibalisation ---------- */
-.cann-big { font: 600 32px/1.1 "Barlow Condensed", sans-serif; margin: 2px 0 10px; }
-.cann-big .pos { color: var(--magenta); }
-.cann-big .neg { color: var(--c-removal); }
-.cann-verdict { color: var(--ink-2); font-size: 15px; margin: 0 0 16px; }
-.picks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 0 0 20px; }
-.picks label { display: block; font-size: 12.5px; font-weight: 600; color: var(--ink-3); margin-bottom: 4px; }
-select { width: 100%; background: var(--sheet-2); border: 1px solid var(--rule-strong); border-radius: 6px; padding: 8px 10px; font-size: 14.5px; }
-.kv { display: grid; grid-template-columns: minmax(0, 1fr) auto; font-size: 14.5px; }
-.kv > div { padding: 7px 0; border-top: 1px solid var(--rule); }
-.kv .k { color: var(--ink-2); }
-.kv .v { text-align: right; font-weight: 600; padding-left: 16px; }
-.kv .tot { font-weight: 700; color: var(--ink); border-top: 1.5px solid var(--ink); }
-.kv .v.tot.pos { color: var(--magenta); }
-.fine { font-size: 12.5px; color: var(--ink-3); margin-top: 12px; }
-
-/* ---------- attribution ---------- */
-.wf-row { display: grid; grid-template-columns: 186px minmax(0, 1fr) 118px; align-items: center; gap: 14px; padding: 8px 0; border-top: 1px solid var(--rule); }
-.wf-row:first-child { border-top: 0; }
-.wf-name { font-size: 14.5px; color: var(--ink-2); }
-.wf-name .sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 8px; }
-.wf-track { position: relative; height: 18px; }
-.wf-bar { position: absolute; top: 2px; height: 14px; border-radius: 3px; }
-.wf-mark { position: absolute; top: -3px; width: 3px; height: 24px; margin-left: -1.5px; background: var(--ink); border-radius: 2px; }
-.wf-v { text-align: right; font-weight: 600; font-size: 15px; }
-.wf-v small { display: block; font-weight: 400; color: var(--ink-3); font-size: 12.5px; line-height: 1.2; }
-.wf-row.total .wf-name { color: var(--ink); font-weight: 600; }
-.wf-row.total.ao .wf-mark { background: var(--magenta); }
-.wf-row.total.ao .wf-v { color: var(--magenta); }
-.wf-axis { display: grid; grid-template-columns: 186px minmax(0, 1fr) 118px; gap: 14px; margin-top: 4px; }
-.wf-axis .ax { position: relative; height: 16px; font: 500 13px/1 "Barlow Condensed", sans-serif; color: var(--ink-3); }
-.wf-axis .ax span { position: absolute; transform: translateX(-50%); }
-.chartbox { position: relative; height: 290px; }
-.chartbox.small { height: 230px; }
-
-/* ---------- gate ---------- */
-.gate-row { display: grid; grid-template-columns: 172px minmax(0, 1fr) 90px; gap: 14px; align-items: center; padding: 3px 0; }
-.gate-row .who { font-size: 14px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.gate-row .who .id { color: var(--ink); }
-.gate-track { position: relative; height: 18px; }
-.gate-win { position: absolute; top: 0; bottom: 0; left: 0; background: color-mix(in srgb, var(--ink) 8%, transparent); border-right: 2px solid var(--ink-3); border-radius: 3px 0 0 3px; }
-.gate-iv { position: absolute; top: 6px; height: 6px; border-radius: 3px; background: var(--ink-2); }
-.gate-row.inspect .gate-iv { background: var(--c-spares); }
-.gate-pt { position: absolute; top: 2px; width: 2px; height: 14px; background: var(--ink); }
-.gate-row .st { font-size: 13.5px; font-weight: 600; text-align: right; color: var(--ink-2); }
-.gate-row.inspect .st { color: var(--c-spares); }
-.gate-axis { display: grid; grid-template-columns: 172px minmax(0, 1fr) 90px; gap: 14px; margin-top: 4px; font: 500 13px/1 "Barlow Condensed", sans-serif; color: var(--ink-3); }
-.gate-axis .ax { position: relative; height: 16px; }
-.gate-axis .ax span { position: absolute; transform: translateX(-50%); }
-.key { display: flex; gap: 22px; flex-wrap: wrap; font-size: 13.5px; color: var(--ink-2); margin-top: 16px; }
-.key i { display: inline-block; vertical-align: 1px; margin-right: 7px; }
-.counts { display: flex; gap: 26px; }
-.counts div { text-align: right; }
-.counts b { display: block; font: 600 34px/1 "Barlow Condensed", sans-serif; }
-.counts span { font-size: 12.5px; color: var(--ink-3); }
-.counts .insp b { color: var(--c-spares); }
-
-/* ---------- tables, depot ---------- */
-table { width: 100%; border-collapse: collapse; font-size: 14.5px; }
-th { font-size: 12.5px; font-weight: 600; color: var(--ink-3); text-align: left; padding: 0 12px 8px 0; border-bottom: 1.5px solid var(--ink); white-space: nowrap; }
-td { padding: 9px 12px 9px 0; border-bottom: 1px solid var(--rule); color: var(--ink-2); white-space: nowrap; }
-td.n, th.n { text-align: right; }
-td.strong { color: var(--ink); font-weight: 600; }
-td.gain { color: var(--magenta); font-weight: 600; }
-.unlock { height: 8px; background: var(--magenta); border-radius: 0 4px 4px 0; }
-.scroll { overflow-x: auto; }
-.g-row { display: grid; grid-template-columns: 70px minmax(0, 1fr); gap: 12px; align-items: center; height: 30px; }
-.g-row .tail { height: auto; }
-.g-track { position: relative; height: 100%; border-bottom: 1px solid var(--rule); }
-.g-bar { position: absolute; height: 8px; border-radius: 3px; }
-.g-bar.prac { top: 6px; background: var(--practice); opacity: .55; }
-.g-bar.plan { top: 16px; background: var(--magenta); }
-.g-due { position: absolute; top: 0; width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 7px solid var(--ink); transform: translateX(-5px); }
-.g-late { position: absolute; top: 6px; height: 8px; background: repeating-linear-gradient(90deg, var(--c-depot) 0 2px, transparent 2px 4px); }
-
-/* ---------- metrics ---------- */
-.cmp { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 40px; margin-top: 4px; }
-.cmp h3 { font: 600 19px/1.2 "Barlow Condensed", sans-serif; letter-spacing: .01em; margin: 0 0 4px; color: var(--ink-2); }
-.cmp .ours h3 { color: var(--ink); }
-.cmp .big { font: 600 72px/1.05 "Barlow Condensed", sans-serif; color: var(--practice); margin-top: 6px; }
-.cmp .ours .big { color: var(--magenta); }
-.cmp .bl { font-size: 13.5px; color: var(--ink-3); margin: 4px 0 14px; }
-.subcharts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 40px; margin-top: 30px; }
-.chart-title { font-size: 14px; font-weight: 600; color: var(--ink-2); margin: 0 0 8px; }
-.honest { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 30px; margin-top: 30px; padding-top: 22px; border-top: 1px solid var(--rule); font-size: 14.5px; color: var(--ink-2); }
-.honest h3 { font: 600 19px/1.2 "Barlow Condensed", sans-serif; color: var(--ink); margin: 0 0 6px; }
-.honest p { margin: 0; }
-
-.skeleton { color: var(--ink-3); padding: 60px 0; font-size: 15px; }
-.err { color: var(--c-removal); }
-footer { color: var(--ink-3); font-size: 13px; padding: 0 0 40px; }
-
-@media (max-width: 1380px) { .strip .lead { display: none; } }
-@media (max-width: 1200px) {
-  .pair, .pair.wide-left, .cmp, .subcharts, .honest { grid-template-columns: minmax(0, 1fr); }
-  .hero-top { grid-template-columns: minmax(0, 1fr); gap: 28px; }
-}
-@media (max-width: 760px) {
-  .wrap { padding: 0 16px; }
-  .strip { position: static; }
-  .strip .wrap { gap: 16px; }
-  .ground { flex-wrap: wrap; }
-  .slider { width: 100%; }
-  .sheet { padding: 18px 16px; border-radius: 10px; }
-  .top .wrap { flex-wrap: wrap; gap: 10px; }
-  .wf-row, .wf-axis { grid-template-columns: 112px minmax(0, 1fr) 84px; }
-  .gate-row, .gate-axis { grid-template-columns: 104px minmax(0, 1fr) 64px; }
-  .act { grid-template-columns: 26px minmax(0, 1fr) 76px; }
-  .act .g .v { font-size: 28px; }
-  .scale { height: 190px; }
-  .scale .wp .lab b { font-size: 24px; }
-  .scale .leg .box { font-size: 13.5px; top: -46px; }
-  .scale .long { display: none; }
-  .figs { grid-template-columns: minmax(0, 1fr); }
-  .fig:nth-child(even) { border-left: 0; padding-left: 0; }
-  .counts { gap: 14px; }
-  .counts b { font-size: 26px; }
-}
-@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
-
-.print-only { display: none; }
-@media print {
-  :root { --paper: #fff; --sheet: #fff; --ink: #000; --ink-2: #222; --ink-3: #555; --rule: #ccc; --magenta: #000; }
-  body { background: #fff; }
-  body::before, header.top, .strip, #skeleton, footer, #app > *:not(.pair.wide-left), .pair.wide-left > :not(#order-section), .why, .more { display: none !important; }
-  .pair.wide-left { display: block; }
-  .sheet { border: 0; box-shadow: none; padding: 0; }
-  .print-only { display: block; }
-  .act { break-inside: avoid; display: grid !important; }
-  .trace { display: block !important; }
-}
-</style>
+<title>FLIGHTLINE · Fleet availability</title>
+<link rel="stylesheet" href="/static/app.css">
 </head>
 <body>
-<header class="top">
-  <div class="wrap">
-    <a class="brand" href="/" aria-label="FLIGHTLINE">
-      <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"><circle cx="6.5" cy="27.5" r="3.6" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M9.5 24.5 L24.5 9.5" stroke="var(--magenta)" stroke-width="3" stroke-linecap="round"/><path d="M28.5 3.5 L32 10.5 L25 10.5 Z" fill="var(--magenta)"/></svg>
-      <div><b>FLIGHTLINE</b><span>Fleet availability twin · 90 days from today</span></div>
-    </a>
-    <div class="grow"></div>
-    <span class="solve" id="solve" aria-live="polite">Loading…</span>
-    <span class="stamp" id="badge" title="Where the numbers come from">Synthetic scenario</span>
-    <button class="btn" id="print" type="button">Print maintenance order</button>
-    <button class="btn" id="theme" type="button" aria-label="Switch between day and night chart">Night</button>
+
+<!-- top bar -->
+<header class="topbar no-print sticky top-0 z-30 h-14 border-b border-line bg-panel/90 backdrop-blur">
+  <div class="flex h-full items-center gap-4 px-4 lg:px-5">
+    <a href="/" class="text-[15px] font-bold tracking-[0.14em] text-fg" aria-label="FLIGHTLINE">FLIGHT<span class="text-plan">LINE</span></a>
+    <span class="hidden h-5 w-px bg-line sm:block"></span>
+    <span class="hidden text-[13px] text-fg-3 sm:block">Fleet availability</span>
+    <span class="hidden text-[13px] text-line-strong md:block">/</span>
+    <span class="hidden text-[13px] font-medium text-fg md:block">90-day plan</span>
+    <div class="flex-1"></div>
+    <span id="solve" class="hidden items-center gap-2 text-[12.5px] text-fg-3 md:inline-flex" aria-live="polite"><span class="h-1.5 w-1.5 rounded-full bg-line-strong"></span>Loading…</span>
+    <span id="badge" class="hidden h-7 sm:inline-flex items-center rounded-md border border-spares/40 bg-spares/10 px-2 text-[12px] font-medium text-spares" title="Where the numbers come from">Synthetic scenario</span>
+    <button id="print" type="button" class="btn">
+      <svg viewBox="0 0 16 16" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M4.5 6V2.5h7V6M4.5 11.5H3a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v3.5a1 1 0 0 1-1 1h-1.5"/><path d="M4.5 9.5h7v4h-7z"/></svg>
+      <span class="hidden sm:inline">Print order</span>
+    </button>
+    <button id="theme" type="button" class="btn-icon" aria-label="Switch light and dark">
+      <svg id="theme-ic" viewBox="0 0 16 16" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M13.5 9.5A5.5 5.5 0 0 1 6.5 2.5a5.5 5.5 0 1 0 7 7z"/></svg>
+    </button>
   </div>
 </header>
 
-<div class="strip" aria-label="Scenario">
-  <div class="wrap">
-    <div class="lead">Scenario<small>Both plans re-solve</small></div>
-    <div>
-      <div class="ctl-label"><span id="gl">Ground aircraft</span><output id="gcount">none</output></div>
-      <div class="ground" id="chips" role="group" aria-labelledby="gl"></div>
-    </div>
-    <div class="slider">
-      <div class="ctl-label"><label for="delay">Spares convoy delay</label><output id="delayv">0 days</output></div>
-      <input type="range" id="delay" min="0" max="30" step="1" value="0">
-      <div class="ticks"><span>0</span><span>15</span><span>30 days</span></div>
-    </div>
-    <div class="slider">
-      <div class="ctl-label"><label for="surge">Sortie surge, next 14 days</label><output id="surgev">+0%</output></div>
-      <input type="range" id="surge" min="0" max="100" step="10" value="0">
-      <div class="ticks"><span>0</span><span>+50%</span><span>+100%</span></div>
-    </div>
-    <button class="btn" id="reset" type="button">Reset to today</button>
-  </div>
-</div>
+<div class="lg:grid lg:grid-cols-[264px_minmax(0,1fr)]">
 
-<main class="wrap" id="main">
-  <div class="skeleton" id="skeleton">Loading the fleet…</div>
-  <div id="app" hidden>
+  <!-- sidebar: navigation + scenario -->
+  <aside class="sidebar no-print border-b border-line bg-panel lg:sticky lg:top-14 lg:h-[calc(100vh-3.5rem)] lg:overflow-y-auto lg:border-b-0 lg:border-r">
+    <nav class="hidden space-y-0.5 p-3 lg:block" aria-label="Sections">
+      <a class="nav-link" href="#overview"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>Overview</a>
+      <a class="nav-link" href="#board"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 3.5h7M5 8h9M2 12.5h5"/></svg>Line board</a>
+      <a class="nav-link" href="#recommendations"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="m2 4 1.5 1.5L6 3M2 11l1.5 1.5L6 10M8.5 4.5H14M8.5 11.5H14"/></svg>Recommendations</a>
+      <a class="nav-link" href="#cannibalisation"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 5h10l-2.5-2.5M14 11H4l2.5 2.5"/></svg>Cannibalisation</a>
+      <a class="nav-link" href="#attribution"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 13.5h12M4 13.5V6M8 13.5V2.5M12 13.5V9"/></svg>Attribution</a>
+      <a class="nav-link" href="#prognosis"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1.5 8h3l2-4.5 3 9 2-4.5h3"/></svg>Prognosis</a>
+      <a class="nav-link" href="#spares"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 1.75 14 5v6l-6 3.25L2 11V5zM2 5l6 3.25L14 5M8 8.25v6"/></svg>Spares</a>
+      <a class="nav-link" href="#depot"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1.5 14V6L8 2l6.5 4v8M4.5 14V9h7v5"/></svg>Depot</a>
+      <a class="nav-link" href="#model"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><circle cx="8" cy="8" r="2.5"/></svg>Model accuracy</a>
+    </nav>
 
-    <section class="hero" aria-label="Headline">
-      <div class="hero-top">
-        <div><h1 id="h1"></h1><p class="sub" id="thesis"></p></div>
-        <div class="figs" id="figs"></div>
-      </div>
-      <div class="scale" id="scale" role="img"></div>
-    </section>
-
-    <section class="sheet" aria-labelledby="board-h">
-      <div class="head">
-        <div><p class="kicker">Line board</p><h2 id="board-h">Every aircraft, every day of the next 90</h2></div>
-        <div class="seg" role="group" aria-label="Which plan to show">
-          <button type="button" data-view="baseline" aria-pressed="false">Current practice</button>
-          <button type="button" data-view="plan" aria-pressed="true">FLIGHTLINE plan</button>
+    <div class="border-line p-4 lg:border-t" aria-label="Scenario">
+      <div class="mb-3 flex items-center justify-between">
+        <div>
+          <div class="text-[13px] font-semibold text-fg">Scenario</div>
+          <div class="text-[12px] text-fg-3">Both plans re-solve on change</div>
         </div>
+        <button id="reset" type="button" class="btn h-7 px-2.5 text-[12px]">Reset</button>
       </div>
-      <p class="deck" id="board-deck"></p>
-      <div class="board-wrap"><div class="board" id="board" role="img" aria-label="Status of each aircraft for each of the next 90 days"></div></div>
-      <div class="legend" id="legend"></div>
-    </section>
 
-    <div class="pair wide-left">
-      <section class="sheet" id="order-section" aria-labelledby="act-h">
-        <div class="print-only"><h1 style="font:600 24px 'Barlow Condensed';margin:0 0 4px">Maintenance order: draft recommendation</h1><p style="margin:0 0 12px;font-size:12px" id="print-meta"></p></div>
-        <p class="kicker">Recommendations</p>
-        <h2 id="act-h">What to do, ranked by aircraft-days</h2>
-        <p class="deck">Each is scored in aircraft-days and carries the trace of how. FLIGHTLINE ranks and prices; it never authorises. The signature stays with the engineering officer.</p>
-        <ol class="actions" id="actions"></ol>
-        <button class="btn more" id="more" type="button" hidden></button>
-      </section>
-      <section class="sheet" aria-labelledby="cann-h">
-        <p class="kicker">Cannibalisation</p>
-        <h2 id="cann-h">Priced, not banned</h2>
-        <p class="deck">A swap moves the hole; it does not fill it. This is what it really costs over the next <span id="cann-h-days">30</span> days.</p>
-        <div id="cann"></div>
-      </section>
-    </div>
+      <div class="mb-1.5 flex items-center justify-between"><span class="label" id="gl">Ground aircraft</span><output id="gcount" class="text-[12px] font-medium text-fg">none</output></div>
+      <div id="chips" class="space-y-2" role="group" aria-labelledby="gl"></div>
 
-    <div class="pair">
-      <section class="sheet" aria-labelledby="wf-h">
-        <p class="kicker">Attribution</p>
-        <h2 id="wf-h">Where availability goes</h2>
-        <p class="deck" id="wf-sub"></p>
-        <div id="wf"></div>
-      </section>
-      <section class="sheet" aria-labelledby="line-h">
-        <p class="kicker">Projection</p>
-        <h2 id="line-h">Aircraft available each day</h2>
-        <p class="deck">Against the aircraft the sortie plan tasks. Wherever a line drops below the dashed one, sorties are lost.</p>
-        <div class="chartbox"><canvas id="daily" aria-label="Aircraft available per day, current practice and plan, against tasking"></canvas></div>
-      </section>
-    </div>
-
-    <section class="sheet" aria-labelledby="gate-h">
-      <div class="head">
-        <div><p class="kicker">Prognosis</p><h2 id="gate-h">The abstention gate: it says when it does not know</h2></div>
-        <div class="counts" id="gate-counts"></div>
+      <div class="mt-5">
+        <div class="mb-1 flex items-center justify-between"><label for="delay" class="label">Spares convoy delay</label><output id="delayv" class="text-[12px] font-medium text-fg">0 days</output></div>
+        <input type="range" id="delay" min="0" max="30" step="1" value="0">
+        <div class="flex justify-between text-2xs text-fg-3"><span>0</span><span>15</span><span>30 days</span></div>
       </div>
-      <p class="deck">Remaining life as a 90% conformal interval, in days, for every part whose interval reaches its decision window (spares lead + delay + depot queue + fitting). When the interval is wider than the window, the model asks for an inspection instead of guessing.</p>
-      <div id="gate"></div>
-    </section>
-
-    <div class="pair">
-      <section class="sheet" aria-labelledby="sp-h">
-        <p class="kicker">Spares</p>
-        <h2 id="sp-h">Which spare, stocked where, unlocks the most</h2>
-        <p class="deck">One more unit on the shelf today at each base, replayed through the projection. Answering it needs all four silos at once.</p>
-        <div class="scroll"><table id="spares"></table></div>
-        <p class="fine" id="spares-note"></p>
-      </section>
-      <section class="sheet" aria-labelledby="dp-h">
-        <p class="kicker">Depot</p>
-        <h2 id="dp-h">Inductions: current practice and plan</h2>
-        <p class="deck" id="dp-sub"></p>
-        <div id="gantt"></div>
-      </section>
-    </div>
-
-    <section class="sheet" aria-labelledby="aph-h">
-      <p class="kicker">Actionable Prognostic Horizon</p>
-      <h2 id="aph-h">Accuracy is the wrong target</h2>
-      <p class="deck">A prediction is worth nothing if it arrives after the last day you could have acted on it. APH is the share of failures warned at least one decision window ahead. Both models were trained here on the same data and tested on the same held-out units.</p>
-      <div class="cmp" id="cmp"></div>
-      <div class="subcharts">
-        <div><p class="chart-title">Failures warned in time, by part (decision window in days)</p><div class="chartbox small"><canvas id="aphpart" aria-label="APH by part for both models"></canvas></div></div>
-        <div><p class="chart-title" id="ft-label">How early it warns, as labelled failures grow</p><div class="chartbox small"><canvas id="finetune" aria-label="Warning lead divided by decision window, by number of labelled failures"></canvas></div><p class="fine" id="ft-note"></p></div>
+      <div class="mt-4">
+        <div class="mb-1 flex items-center justify-between"><label for="surge" class="label">Sortie surge, next 14 days</label><output id="surgev" class="text-[12px] font-medium text-fg">+0%</output></div>
+        <input type="range" id="surge" min="0" max="100" step="10" value="0">
+        <div class="flex justify-between text-2xs text-fg-3"><span>0</span><span>+50%</span><span>+100%</span></div>
       </div>
-      <div class="honest" id="honest"></div>
-    </section>
-  </div>
-</main>
-<footer class="wrap" id="foot"></footer>
+
+      <p id="provenance" class="mt-6 rounded-lg bg-subtle p-3 text-[12px] leading-relaxed text-fg-3"></p>
+    </div>
+  </aside>
+
+  <!-- main -->
+  <main class="min-w-0 px-4 pb-16 pt-6 lg:px-8">
+    <div id="skeleton" class="py-16 text-fg-3">Loading the fleet…</div>
+    <div id="app" class="mx-auto max-w-[1400px] space-y-5" hidden>
+
+      <section id="overview" class="scroll-mt-20" aria-label="Overview">
+        <div class="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <h1 class="text-[22px] font-semibold tracking-[-0.02em]">Overview</h1>
+            <p id="subhead" class="mt-0.5 text-[13.5px] text-fg-3"></p>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="label hidden sm:inline">Showing</span>
+            <div class="seg" role="group" aria-label="Which plan to show">
+              <button type="button" data-view="baseline" aria-pressed="false">Current practice</button>
+              <button type="button" data-view="plan" aria-pressed="true">FLIGHTLINE plan</button>
+            </div>
+          </div>
+        </div>
+        <div id="kpis" class="mt-5 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5"></div>
+      </section>
+
+      <section id="board" class="card scroll-mt-20" aria-labelledby="board-h">
+        <div class="card-head">
+          <div><h2 id="board-h" class="card-title">Line board</h2><p id="board-deck" class="card-desc"></p></div>
+          <div id="legend" class="flex max-w-[640px] flex-wrap justify-end gap-x-4 gap-y-1.5 pt-1 text-[12px] text-fg-2"></div>
+        </div>
+        <div class="card-body overflow-x-auto"><div id="lineboard" class="grid min-w-[760px] grid-cols-[68px_36px_minmax(0,1fr)] items-center gap-x-3" role="img" aria-label="Status of each aircraft for each of the next 90 days"></div></div>
+      </section>
+
+      <div class="print-keep grid gap-5 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+        <section id="order-section" class="card scroll-mt-20" aria-labelledby="act-h">
+          <span id="recommendations" class="block scroll-mt-20"></span>
+          <div class="print-only hidden px-5 pt-4"><div class="text-[18px] font-semibold">Maintenance order: draft recommendation</div><p id="print-meta" class="text-[12px] text-fg-3"></p></div>
+          <div class="card-head">
+            <div><h2 id="act-h" class="card-title">Recommendations</h2><p class="card-desc">Ranked by aircraft-days gained, each with the trace of how it was valued. FLIGHTLINE ranks and prices; it never authorises.</p></div>
+          </div>
+          <div class="card-body pt-0">
+            <ol id="actions" class="actions divide-y divide-line"></ol>
+            <button id="more" type="button" class="btn no-print mt-3" hidden></button>
+          </div>
+        </section>
+
+        <section id="cannibalisation" class="card scroll-mt-20" aria-labelledby="cann-h">
+          <div class="card-head">
+            <div><h2 id="cann-h" class="card-title">Cannibalisation price</h2><p class="card-desc">A swap moves the hole; it does not fill it. Net over the next <span id="cann-h-days">30</span> days.</p></div>
+          </div>
+          <div id="cann" class="card-body pt-0"></div>
+        </section>
+      </div>
+
+      <div class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        <section id="attribution" class="card scroll-mt-20" aria-labelledby="wf-h">
+          <div class="card-head"><div><h2 id="wf-h" class="card-title">Where availability goes</h2><p id="wf-sub" class="card-desc"></p></div></div>
+          <div id="wf" class="card-body pt-1"></div>
+        </section>
+        <section class="card" aria-labelledby="line-h">
+          <div class="card-head"><div><h2 id="line-h" class="card-title">Aircraft available each day</h2><p class="card-desc">Against the aircraft the sortie plan tasks. Below the dashed line, sorties are lost.</p></div></div>
+          <div class="card-body"><div class="relative h-[280px]"><canvas id="daily" aria-label="Aircraft available per day, current practice and plan, against tasking"></canvas></div></div>
+        </section>
+      </div>
+
+      <section id="prognosis" class="card scroll-mt-20" aria-labelledby="gate-h">
+        <div class="card-head">
+          <div><h2 id="gate-h" class="card-title">Prognosis and abstention</h2><p class="card-desc">Remaining life as a 90% conformal interval, for every part whose interval reaches its decision window (spares lead + delay + depot queue + fitting). Wider than the window, and the model asks for an inspection instead of guessing.</p></div>
+          <div id="gate-counts" class="flex gap-2"></div>
+        </div>
+        <div id="gate" class="card-body pt-1"></div>
+      </section>
+
+      <div class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        <section id="spares" class="card scroll-mt-20" aria-labelledby="sp-h">
+          <div class="card-head"><div><h2 id="sp-h" class="card-title">Spare unlock ranking</h2><p class="card-desc">What one more unit on the shelf today unlocks at each base, replayed through the projection.</p></div></div>
+          <div class="card-body pt-0">
+            <div class="overflow-x-auto rounded-lg border border-line"><table id="sparestbl" class="tbl"></table></div>
+            <p id="spares-note" class="mt-3 text-[12px] text-fg-3"></p>
+          </div>
+        </section>
+        <section id="depot" class="card scroll-mt-20" aria-labelledby="dp-h">
+          <div class="card-head"><div><h2 id="dp-h" class="card-title">Depot inductions</h2><p id="dp-sub" class="card-desc"></p></div></div>
+          <div id="gantt" class="card-body pt-1"></div>
+        </section>
+      </div>
+
+      <section id="model" class="card scroll-mt-20" aria-labelledby="aph-h">
+        <div class="card-head"><div><h2 id="aph-h" class="card-title">Model accuracy vs. actionable horizon</h2><p class="card-desc">APH is the share of failures warned at least one decision window ahead: early enough to get the spare, the bay and the crew in place. Both models were trained on the same data and tested on the same held-out units.</p></div></div>
+        <div class="card-body pt-1">
+          <div id="cmp" class="grid gap-4 lg:grid-cols-2"></div>
+          <div class="mt-6 grid gap-6 lg:grid-cols-2">
+            <div><div class="mb-2 text-[13px] font-medium text-fg-2">Failures warned in time, by part (decision window in days)</div><div class="relative h-[230px]"><canvas id="aphpart" aria-label="APH by part for both models"></canvas></div></div>
+            <div><div class="mb-2 text-[13px] font-medium text-fg-2">How early it warns as labelled failures grow</div><div class="relative h-[230px]"><canvas id="finetune" aria-label="Warning lead divided by decision window, by number of labelled failures"></canvas></div><p id="ft-note" class="mt-2 text-[12px] text-fg-3"></p></div>
+          </div>
+          <div id="honest" class="mt-6 grid gap-6 border-t border-line pt-5 text-[13px] text-fg-2 lg:grid-cols-3"></div>
+        </div>
+      </section>
+
+      <footer id="foot" class="no-print pt-2 text-[12px] text-fg-3"></footer>
+    </div>
+  </main>
+</div>
 <div class="tip" id="tip" role="tooltip"></div>
 
 <script src="/static/vendor/chart.umd.min.js"></script>
@@ -503,10 +187,10 @@ const NAME = {
 };
 const SHORTNAME = { 0: "Grounded", 1: "Inspection", 2: "Bay queue", 3: "Spares", 4: "Cascade", 5: "Removal" };
 const CAUSE_ORDER = ["spares_lead_time", "depot_contention", "unscheduled_removal", "cannibalisation_cascade", "directed_grounding"];
-const SW = {
-  spares_lead_time: "var(--c-spares)", depot_contention: "var(--c-depot)", unscheduled_removal: "var(--c-removal)",
-  cannibalisation_cascade: "repeating-linear-gradient(135deg, var(--c-removal) 0 3px, transparent 3px 5px)",
-  directed_grounding: "repeating-linear-gradient(135deg, var(--c-grounded) 0 3px, transparent 3px 5px)", planned: "var(--c-planned)",
+// swatch classes per label, written out in full so Tailwind's scanner sees every one
+const SWC = {
+  spares_lead_time: "bg-spares", depot_contention: "bg-depot", unscheduled_removal: "bg-removal",
+  cannibalisation_cascade: "sw-hatch-removal", directed_grounding: "sw-hatch-grounded", planned: "bg-planned",
 };
 const SHORT = { "PN-5520-ADC": "Air data", "PN-3108-GEN": "Generator", "PN-4410-HP": "Hyd. pump", "PN-1904-MLA": "MLG act.", "PN-2275-FCU": "Fuel ctrl", "PN-6731-RTX": "Radar TX" };
 const UP = 6;
@@ -517,15 +201,18 @@ const pct = (x, d = 1) => (100 * x).toFixed(d) + "%";
 const sgn = (x, d = 0) => { const v = Math.abs(x).toFixed(d); return +v === 0 ? "±" + v : (x > 0 ? "+" : "−") + v; };
 const minus = (x, d = 1) => (+Math.abs(x).toFixed(d) === 0 ? "0" : "−" + Math.abs(x).toFixed(d));
 const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
-const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const rgb = (v, a = 1) => `rgb(${getComputedStyle(document.documentElement).getPropertyValue("--" + v).trim()} / ${a})`;
+const lost = (r) => Object.values(r.attribution_days).reduce((x, y) => x + y, 0);
 
 let S = null, view = "plan", showAll = false, seq = 0;
 const charts = {};
 
 // ---------- theme ----------
+const MOON = '<path d="M13.5 9.5A5.5 5.5 0 0 1 6.5 2.5a5.5 5.5 0 1 0 7 7z"/>';
+const SUN = '<circle cx="8" cy="8" r="3"/><path d="M8 1v1.5M8 13.5V15M1 8h1.5M13.5 8H15M3 3l1 1M12 12l1 1M3 13l1-1M12 4l1-1"/>';
 function setTheme(t) {
   if (t === "dark") document.documentElement.setAttribute("data-theme", "dark"); else document.documentElement.removeAttribute("data-theme");
-  $("#theme").textContent = t === "dark" ? "Day" : "Night";
+  $("#theme-ic").innerHTML = t === "dark" ? SUN : MOON;
   try { localStorage.setItem("fl-theme", t); } catch (e) {}
   if (S) renderCharts();
 }
@@ -533,13 +220,25 @@ function setTheme(t) {
 $("#theme").addEventListener("click", () => setTheme(document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark"));
 $("#print").addEventListener("click", () => window.print());
 
+// ---------- scroll spy ----------
+(function () {
+  const links = [...document.querySelectorAll(".nav-link")];
+  const setActive = (id) => links.forEach((a) => a.classList.toggle("active", a.getAttribute("href") === "#" + id));
+  setActive("overview");
+  const obs = new IntersectionObserver((entries) => {
+    const vis = entries.filter((e) => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+    if (vis.length) setActive(vis[0].target.id);
+  }, { rootMargin: "-64px 0px -60% 0px" });
+  ["overview", "board", "recommendations", "cannibalisation", "attribution", "prognosis", "spares", "depot", "model"].forEach((id) => { const n = document.getElementById(id); if (n) obs.observe(n); });
+})();
+
 // ---------- scenario ----------
 const scenario = { ground_tails: [], spares_delay_days: 0, sortie_surge: 0 };
 function buildChips(fleet) {
   const box = $("#chips"); box.innerHTML = "";
   for (const b of [...new Set(fleet.map((f) => f.base))]) {
-    const g = el("div", "base-group", `<span class="bn">${b.replace("BASE-", "Base ")}</span>`);
-    const row = el("div", "row");
+    const g = el("div", "", `<div class="mb-1 text-2xs text-fg-3">${b.replace("BASE-", "Base ")}</div>`);
+    const row = el("div", "grid grid-cols-8 gap-1");
     for (const f of fleet.filter((x) => x.base === b)) {
       const c = el("button", "chip", f.tail.slice(5));
       c.type = "button"; c.dataset.tail = f.tail; c.setAttribute("aria-pressed", "false"); c.setAttribute("aria-label", "Ground " + f.tail);
@@ -562,11 +261,11 @@ function syncControls() {
   $("#surgev").textContent = "+" + scenario.sortie_surge + "%";
 }
 let timer = null;
-function push() {
-  clearTimeout(timer);
-  $("#solve").classList.add("busy"); $("#solve").innerHTML = "<b>Re-solving…</b>";
-  timer = setTimeout(send, 180);
+function setSolve(state, html) {
+  const dot = state === "busy" ? "bg-plan animate-pulse" : state === "err" ? "bg-removal" : "bg-emerald-500";
+  $("#solve").innerHTML = `<span class="h-1.5 w-1.5 rounded-full ${dot}"></span>${html}`;
 }
+function push() { clearTimeout(timer); setSolve("busy", "Re-solving…"); timer = setTimeout(send, 180); }
 async function send() {
   const my = ++seq;
   try {
@@ -574,7 +273,7 @@ async function send() {
     if (!r.ok) throw new Error((await r.text()) || r.status);
     const s = await r.json();
     if (my === seq) { S = s; render(); }
-  } catch (e) { if (my === seq) $("#solve").innerHTML = '<span class="err">Could not re-solve: ' + esc(e.message) + "</span>"; }
+  } catch (e) { if (my === seq) setSolve("err", "Could not re-solve: " + esc(e.message)); }
 }
 // Labels follow the thumb; the re-solve happens once, on release.
 for (const [id, key] of [["#delay", "spares_delay_days"], ["#surge", "sortie_surge"]]) {
@@ -592,49 +291,39 @@ document.querySelectorAll(".seg button").forEach((b) => b.addEventListener("clic
 function render() {
   $("#skeleton").hidden = true; $("#app").hidden = false;
   const s = S;
-  $("#solve").classList.remove("busy");
-  $("#solve").innerHTML = `Re-solved in <b>${(s.timings_ms.total / 1000).toFixed(2)} s</b> · ${esc(s.optimiser.engine)} ${esc(s.optimiser.status.toLowerCase())}`;
+  setSolve("ok", `Solved in <b class="font-medium text-fg">${(s.timings_ms.total / 1000).toFixed(2)} s</b> · ${esc(s.optimiser.engine)} ${esc(s.optimiser.status.toLowerCase())}`);
   $("#badge").textContent = s.provenance.real_data ? s.provenance.badge : `Synthetic scenario · seed ${s.provenance.seed}`;
+  $("#provenance").innerHTML = s.provenance.real_data
+    ? `Degradation model trained on <b class="text-fg-2">${esc(s.provenance.degradation)}</b>. Fleet, stock, depots and sorties are synthetic.`
+    : `Every number here is computed from a <b class="text-fg-2">synthetic scenario</b> (seed ${s.provenance.seed}). Tails and bases are placeholders. Runs offline; nothing leaves this machine.`;
   if (!document.querySelector(".chip")) buildChips(s.fleet);
   scenario.ground_tails = [...s.scenario.ground_tails];
   scenario.spares_delay_days = s.scenario.spares_delay_days;
   scenario.sortie_surge = s.scenario.sortie_surge;
   syncControls();
-  renderHero(); renderBoard(); renderActions(); renderCann(); renderAttribution();
-  renderGate(); renderSpares(); renderDepot(); renderMetrics(); renderCharts(); renderFoot();
+  renderOverview(); renderBoard(); renderActions(); renderCann(); renderAttribution();
+  renderGate(); renderSpares(); renderDepot(); renderMetrics(); renderCharts();
+  $("#foot").textContent = `FLIGHTLINE · SIH26249 · ${S.horizon_days}-day projection · one SQLite file, open-source stack, no cloud call.`;
 }
 
-const lost = (r) => Object.values(r.attribution_days).reduce((x, y) => x + y, 0);
-function renderHero() {
+function renderOverview() {
   const b = S.baseline, p = S.plan, d = S.delta, sc = S.scenario;
-  $("#h1").innerHTML = d.aircraft_days > 0
-    ? `<em>${d.aircraft_days} more aircraft-days</em> from the same aircraft, parts and bays.`
-    : `In this scenario no plan beats current practice.`;
   const cond = [];
   if (sc.ground_tails.length) cond.push(`${sc.ground_tails.length} aircraft grounded`);
   if (sc.spares_delay_days) cond.push(`spares ${sc.spares_delay_days} days late`);
-  if (sc.sortie_surge) cond.push(`a ${sc.sortie_surge}% sortie surge`);
-  $("#thesis").innerHTML = `Over the next 90 days${cond.length ? ", with " + esc(cond.join(", ")) : ""}, current practice keeps <strong>${pct(b.ao)}</strong> of the fleet available. The FLIGHTLINE plan keeps <strong>${pct(p.ao)}</strong> and flies <strong>${d.sortie_days} more</strong> of the tasked sorties. Both run through the same simulator.`;
-  // A chart scale bar for availability; the plan's gain is the magenta leg, labelled like a route segment.
-  const lo = Math.max(0, Math.floor((Math.min(b.ao, p.ao) * 100 - 4) / 5) * 5);
-  const hi = Math.min(100, Math.ceil((Math.max(p.ceiling, b.ceiling) * 100 + 1) / 5) * 5);
-  const X = (v) => 100 * (v * 100 - lo) / (hi - lo);
-  let h = `<div class="bar">${"<i></i>".repeat(hi - lo)}</div>`;
-  for (let v = lo; v <= hi; v += 5) h += `<span class="tick" style="left:${X(v / 100)}%">${v}%</span>`;
-  h += `<div class="ceil${X(p.ceiling) > 70 ? " flip" : ""}" style="left:${X(p.ceiling)}%"><span>Ceiling <b>${pct(p.ceiling)}</b><span class="long">, inspections only</span></span></div>`;
-  const a = Math.min(X(b.ao), X(p.ao)), w = Math.abs(X(p.ao) - X(b.ao));
-  h += `<div class="leg" style="left:${a}%;width:${w}%"><div class="box">${sgn(d.aircraft_days)} aircraft-days<span class="long"> · ${sgn(d.sortie_days)} sorties</span></div></div>`;
-  h += `<div class="wp cur" style="left:${X(b.ao)}%"><svg class="mk" viewBox="0 0 22 22" aria-hidden="true"><circle cx="11" cy="11" r="7.5" fill="var(--sheet)" stroke="var(--ink-2)" stroke-width="2.5"/></svg><div class="lab"><b>${pct(b.ao)}</b><span>Current practice</span></div></div>`;
-  h += `<div class="wp plan" style="left:${X(p.ao)}%"><svg class="mk" viewBox="0 0 22 22" aria-hidden="true"><path d="M11 2 L20.5 19 L1.5 19 Z" fill="var(--magenta)" stroke="var(--sheet)" stroke-width="1.5"/></svg><div class="lab"><b>${pct(p.ao)}</b><span>FLIGHTLINE plan</span></div></div>`;
-  $("#scale").innerHTML = h;
-  $("#scale").setAttribute("aria-label", `Operational availability: current practice ${pct(b.ao)}, FLIGHTLINE plan ${pct(p.ao)}, ceiling ${pct(p.ceiling)}`);
+  if (sc.sortie_surge) cond.push(`${sc.sortie_surge}% sortie surge`);
+  $("#subhead").textContent = `${S.fleet.length} aircraft · ${new Set(S.fleet.map((f) => f.base)).size} bases · ${S.horizon_days}-day projection from today` + (cond.length ? ` · ${cond.join(", ")}` : "");
   const m = S.metrics && S.metrics.models ? S.metrics.models : null;
-  $("#figs").innerHTML = [
-    ["Tasked sorties lost", `${b.sortie_days_lost} <span class="to">→ ${p.sortie_days_lost}</span>`, `of ${p.sortie_days_tasked} tasked in 90 days`],
-    ["Aircraft-days lost below the ceiling", `${lost(b)} <span class="to">→ ${lost(p)}</span>`, "spares, bays, removals, cascades"],
-    ["Days an inspection waits for a bay", `${b.mean_depot_queue_days.toFixed(1)} <span class="to">→ ${p.mean_depot_queue_days.toFixed(1)}</span>`, "mean, past its due date"],
-    m ? ["Failures warned in time", `<span class="to">${pct(m.flightline.aph, 0)}</span>`, `a capped-RMSE model warns ${pct(m.short_horizon.aph, 0)}`] : ["Failures warned in time", "—", "run the seed to compute"],
-  ].map(([k, v, dd]) => `<div class="fig"><div class="k">${k}</div><div class="v">${v}</div><div class="d">${dd}</div></div>`).join("");
+  const kpi = (label, value, sub, delta, help) => `<div class="kpi" ${help ? `title="${esc(help)}"` : ""}><div class="label">${label}</div>
+    <div class="mt-1 flex items-baseline gap-2"><div class="text-[26px] font-semibold tracking-[-0.02em] tabular-nums">${value}</div>${delta ? `<span class="delta delta-up">${delta}</span>` : ""}</div>
+    <div class="mt-0.5 text-[12px] text-fg-3">${sub}</div></div>`;
+  $("#kpis").innerHTML = [
+    kpi("Operational availability", pct(p.ao), `Current practice ${pct(b.ao)} · ceiling ${pct(p.ceiling)}`, `${sgn(d.ao_points, 1)} pts`, "Aircraft-days available ÷ total over 90 days, under the FLIGHTLINE plan"),
+    kpi("Aircraft-days recovered", sgn(d.aircraft_days), `of ${p.aircraft_days_total.toLocaleString("en-IN")} in the horizon`, "", "Plan minus current practice, both simulated on the same predicted failures"),
+    kpi("Tasked sorties lost", String(p.sortie_days_lost), `Current practice ${b.sortie_days_lost} · of ${p.sortie_days_tasked.toLocaleString("en-IN")} tasked`, sgn(p.sortie_days_lost - b.sortie_days_lost)),
+    kpi("Mean wait for a depot bay", `${p.mean_depot_queue_days.toFixed(1)} d`, `Current practice ${b.mean_depot_queue_days.toFixed(1)} d past due`, ""),
+    m ? kpi("Failures warned in time", pct(m.flightline.aph, 0), `Capped-RMSE model ${pct(m.short_horizon.aph, 0)}`, "", "Actionable Prognostic Horizon on held-out run-to-failure units") : kpi("Failures warned in time", "—", "Run the seed to compute", ""),
+  ].join("");
 }
 
 function runs(row, pred) {
@@ -646,21 +335,21 @@ function runs(row, pred) {
   return out;
 }
 function renderBoard() {
-  const s = S, H = s.horizon_days, board = $("#board");
+  const s = S, H = s.horizon_days, board = $("#lineboard");
   const X = (t) => (100 * t / H) + "%";
   board.innerHTML = "";
-  board.appendChild(el("div", "colhead", "Tail"));
-  board.appendChild(el("div", "colhead", "<span title='Sortie-days lost if this aircraft were lost for the whole horizon' style='display:block;text-align:right'>Risk</span>"));
-  board.appendChild(el("div", "axis", `<span class="today" style="left:0">Today</span>` + [14, 28, 42, 56, 70, 84].map((t) => `<span style="left:${X(t)}">Day ${t}</span>`).join("")));
+  board.appendChild(el("div", "label self-end pb-1.5", "Tail"));
+  board.appendChild(el("div", "label self-end pb-1.5 text-right", "<span title='Sortie-days lost if this aircraft were lost for the whole horizon'>Risk</span>"));
+  board.appendChild(el("div", "relative h-5 self-end", `<span class="absolute bottom-1.5 left-0 text-2xs font-medium text-plan">Today</span>` + [14, 28, 42, 56, 70, 84].map((t) => `<span class="absolute bottom-1.5 text-2xs text-fg-3" style="left:${X(t)}">Day ${t}</span>`).join("")));
   const counts = {}; let won = 0;
   const frag = document.createDocumentFragment();
   for (const b of [...new Set(s.fleet.map((f) => f.base))]) {
     const fleetB = s.fleet.filter((f) => f.base === b);
-    frag.appendChild(el("div", "basehead", `<b>${b.replace("BASE-", "BASE ")}</b><span>${fleetB.length} aircraft · ${fleetB.filter((f) => f.today !== "up").length} on the ground today</span>`));
+    frag.appendChild(el("div", "col-span-3 mb-1 mt-3 flex items-baseline gap-2 border-b border-line pb-1.5", `<span class="text-[12px] font-semibold text-fg">${b.replace("BASE-", "Base ")}</span><span class="text-2xs text-fg-3">${fleetB.length} aircraft · ${fleetB.filter((f) => f.today !== "up").length} on the ground today</span>`));
     for (const f of fleetB) {
-      frag.appendChild(el("div", "tail" + (f.grounded ? " grounded" : ""), f.tail));
-      frag.appendChild(el("div", "risk", Math.round(f.criticality_sortie_days)));
-      const tr = el("div", "track");
+      frag.appendChild(el("div", "font-mono text-[11.5px] " + (f.grounded ? "text-fg-3 line-through" : "text-fg-2"), f.tail));
+      frag.appendChild(el("div", "text-right text-[12px] tabular-nums text-fg-3", Math.round(f.criticality_sortie_days)));
+      const tr = el("div", "track my-[1px]");
       const row = f[view];
       for (const [k, a, z] of runs(row, (v) => v !== UP)) {
         counts[k] = (counts[k] || 0) + (z - a);
@@ -685,31 +374,30 @@ function renderBoard() {
   const flown = view === "plan" ? s.daily.flown_plan : s.daily.flown_baseline;
   const missed = s.daily.tasked.map((x, i) => x - flown[i]);
   const maxMiss = Math.max(3, ...missed);
-  frag.appendChild(el("div", "misslabel", "Sorties missed"));
-  const mr = el("div", "miss-row");
-  missed.forEach((m, t) => { if (m > 0) { const i = el("i"); i.style.left = X(t); i.style.width = `calc(${X(1)} - 1px)`; i.style.height = (100 * m / maxMiss) + "%"; Object.assign(i.dataset, { miss: m, t }); mr.appendChild(i); } });
+  frag.appendChild(el("div", "col-span-2 self-end pb-0.5 text-2xs text-fg-3", "Sorties missed"));
+  const mr = el("div", "relative mt-2 h-8 border-t border-line");
+  missed.forEach((m, t) => { if (m > 0) { const i = el("i", "absolute bottom-0 rounded-t-sm bg-removal"); i.style.left = X(t); i.style.width = `calc(${X(1)} - 1px)`; i.style.height = (100 * m / maxMiss) + "%"; Object.assign(i.dataset, { miss: m, t }); mr.appendChild(i); } });
   frag.appendChild(mr);
   board.appendChild(frag);
   requestAnimationFrame(() => board.querySelectorAll(".bar-seg span").forEach((sp) => { if (sp.offsetWidth > sp.parentElement.clientWidth - 8) sp.remove(); }));
   const order = [3, 2, 5, 4, 0, 1];
-  let lg = order.filter((k) => counts[k]).map((k) => `<span><span class="sw" style="background:${SW[s.labels[k]]}"></span>${NAME[s.labels[k]]}<span class="n">${counts[k]} d</span></span>`).join("");
-  if (view === "plan" && won) lg += `<span><span class="sw" style="height:3px;vertical-align:3px;background:var(--magenta)"></span>Days the plan recovers<span class="n">${won} d</span></span>`;
-  lg += `<span><span class="sw" style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:7px solid var(--ink);border-radius:0"></span>Phase inspection due</span>`;
+  let lg = order.filter((k) => counts[k]).map((k) => `<span class="inline-flex items-center gap-1.5"><span class="inline-block h-2.5 w-3.5 rounded-sm ${SWC[s.labels[k]]}"></span>${NAME[s.labels[k]]}<span class="text-fg-3">${counts[k]} d</span></span>`).join("");
+  if (view === "plan" && won) lg += `<span class="inline-flex items-center gap-1.5"><span class="inline-block h-[3px] w-3.5 rounded-sm bg-plan"></span>Recovered by the plan<span class="text-fg-3">${won} d</span></span>`;
   $("#legend").innerHTML = lg;
   $("#board-deck").textContent = view === "plan"
-    ? "Under the FLIGHTLINE plan. Each bar is time on the ground, coloured by why. A magenta line under a row marks days lost under current practice that fly under the plan. Risk is the sortie-days the fleet loses if that aircraft is lost for the whole horizon."
-    : "Under current practice: inspections at their due date, first come first served, and cannibalisation whenever a base is short. Each bar is time on the ground, coloured by why.";
+    ? "Every aircraft, every day of the next 90, under the FLIGHTLINE plan. Bars are time on the ground, coloured by cause; a magenta line marks days the plan recovers. Risk = sortie-days lost if that aircraft were lost for the horizon."
+    : "Every aircraft, every day of the next 90, under current practice: inspections at their due date, first come first served; reactive cannibalisation.";
 }
 (function () {
-  const tip = $("#tip"), board = $("#board");
+  const tip = $("#tip"), board = $("#lineboard");
   board.addEventListener("mousemove", (e) => {
-    const c = e.target.closest(".bar-seg, .won, .miss-row i");
+    const c = e.target.closest(".bar-seg, .won, i[data-miss]");
     if (!c || !S) { tip.style.display = "none"; return; }
     const ds = c.dataset;
     let html;
     if (ds.miss) html = `<b>Day ${ds.t}</b><br>${ds.miss} tasked sortie(s) with no aircraft`;
-    else if (ds.won) html = `<span class="id">${ds.tail}</span><br><b>Recovered by the plan</b><br>Days ${ds.a}–${ds.z - 1} · ${ds.won} d`;
-    else html = `<span class="id">${ds.tail}</span><br><b>${NAME[S.labels[+ds.k]]}</b><br>Days ${ds.a}–${ds.z - 1} · ${ds.z - ds.a} d`;
+    else if (ds.won) html = `<span class="font-mono opacity-75">${ds.tail}</span><br><b>Recovered by the plan</b><br>Days ${ds.a}–${ds.z - 1} · ${ds.won} d`;
+    else html = `<span class="font-mono opacity-75">${ds.tail}</span><br><b>${NAME[S.labels[+ds.k]]}</b><br>Days ${ds.a}–${ds.z - 1} · ${ds.z - ds.a} d`;
     tip.innerHTML = html; tip.style.display = "block";
     const x = Math.min(e.clientX + 14, window.innerWidth - tip.offsetWidth - 8);
     const y = e.clientY + 18 + tip.offsetHeight > window.innerHeight ? e.clientY - tip.offsetHeight - 12 : e.clientY + 18;
@@ -718,22 +406,25 @@ function renderBoard() {
   board.addEventListener("mouseleave", () => { tip.style.display = "none"; });
 })();
 
-// ---------- actions ----------
+// ---------- recommendations ----------
 const KIND = { depot: "Depot", expedite: "Spares", policy: "Policy", cannibalise: "Cannibalisation", order: "Order", inspect: "Inspect" };
 function actionHTML(a, i) {
-  const sd = a.sortie_days_gained == null ? "" : `<div class="s">${sgn(a.sortie_days_gained)} sorties</div>`;
-  return `<li class="act${i >= 6 ? " extra" : ""}" data-id="${esc(a.id)}"><div class="rk">${a.rank}</div>` +
-    `<div><div class="t">${esc(a.title)}</div><div class="r">${esc(a.reason)}</div>` +
-    `<div class="meta"><span class="kind ${a.type === "inspect" ? "inspect" : ""}">${KIND[a.type] || a.type}</span><span>${esc(cap(a.method))}</span><button class="why" type="button" aria-expanded="false">Why this number</button></div></div>` +
-    `<div class="g"><div class="v">${sgn(a.aircraft_days_gained, Number.isInteger(a.aircraft_days_gained) ? 0 : 1)}</div><div class="u">aircraft-days${a.type === "cannibalise" ? ", priced" : ""}</div>${sd}</div>` +
-    `<ul class="trace" hidden>${a.trace.map((t) => `<li><span class="silo">${esc(cap(t.silo))}</span>${esc(t.text)}</li>`).join("")}</ul></li>`;
+  const sd = a.sortie_days_gained == null ? "" : `<div class="text-[12px] text-fg-3">${sgn(a.sortie_days_gained)} sorties</div>`;
+  const tag = a.type === "inspect" ? "border-spares/40 bg-spares/10 text-spares" : "border-line bg-subtle text-fg-2";
+  return `<li class="act grid grid-cols-[28px_minmax(0,1fr)_96px] gap-3 py-3.5 ${i >= 6 ? "extra" : ""}" data-id="${esc(a.id)}">
+    <div class="pt-0.5 text-[13px] font-semibold tabular-nums ${i === 0 ? "text-plan" : "text-fg-3"}">${String(a.rank).padStart(2, "0")}</div>
+    <div class="min-w-0"><div class="text-[14px] font-medium text-fg">${esc(a.title)}</div><div class="mt-0.5 text-[13px] text-fg-2">${esc(a.reason)}</div>
+      <div class="mt-2 flex flex-wrap items-center gap-2 text-[12px]"><span class="rounded border px-1.5 py-px font-medium ${tag}">${KIND[a.type] || a.type}</span><span class="text-fg-3">${esc(cap(a.method))}</span>
+      <button class="why font-medium text-plan hover:underline" type="button" aria-expanded="false">Why this number</button></div>
+      <ul class="trace" hidden>${a.trace.map((t) => `<li><span class="block text-[11px] font-medium uppercase tracking-wide text-fg-3">${esc(t.silo)}</span>${esc(t.text)}</li>`).join("")}</ul></div>
+    <div class="text-right"><div class="text-[20px] font-semibold tabular-nums text-plan">${sgn(a.aircraft_days_gained, Number.isInteger(a.aircraft_days_gained) ? 0 : 1)}</div><div class="text-[12px] text-fg-3">aircraft-days${a.type === "cannibalise" ? ", priced" : ""}</div>${sd}</div></li>`;
 }
 function renderActions() {
   const acts = S.actions;
   $("#actions").innerHTML = acts.map(actionHTML).join("");
   $("#actions").classList.toggle("all", showAll);
   const more = $("#more"); more.hidden = acts.length <= 6;
-  more.textContent = showAll ? "Show the top 6" : `Show all ${acts.length}`;
+  more.textContent = showAll ? "Show top 6" : `Show all ${acts.length}`;
   $("#print-meta").textContent = `Scenario: ${S.scenario.ground_tails.length ? "grounded " + S.scenario.ground_tails.join(", ") + "; " : ""}spares delay ${S.scenario.spares_delay_days} d; sortie surge +${S.scenario.sortie_surge}%. ${S.provenance.badge}. Ao ${pct(S.baseline.ao)} → ${pct(S.plan.ao)}. Recommendations only; not an authorisation.`;
 }
 $("#more").addEventListener("click", () => { showAll = !showAll; renderActions(); });
@@ -741,36 +432,39 @@ $("#actions").addEventListener("click", (e) => {
   const b = e.target.closest(".why"); if (!b) return;
   const ul = b.closest(".act").querySelector(".trace");
   ul.hidden = !ul.hidden; b.setAttribute("aria-expanded", String(!ul.hidden));
-  b.textContent = ul.hidden ? "Why this number" : "Hide the trace";
+  b.textContent = ul.hidden ? "Why this number" : "Hide trace";
 });
 
 // ---------- cannibalisation ----------
 let cannSel = null, cannPinned = false;  // pinned once someone picks a swap by hand
 function cannHTML(c) {
   const net = c.net_aircraft_days, i = c.inputs;
-  const d = (v) => v == null ? "beyond the horizon" : v.toFixed(0) + " days";
-  const gain = c.aircraft_gained_now ? `+1 aircraft in ${c.swap_days} day${c.swap_days > 1 ? "s" : ""}` : "No aircraft gained";
-  return `<div class="cann-big">${gain}, <span class="${net > 0 ? "pos" : net < 0 ? "neg" : ""}">${sgn(net, 1)} aircraft-days</span> over ${c.lookahead_days}.</div>` +
-    `<p class="cann-verdict">${esc(c.verdict)}</p><div class="kv">` +
-    `<div class="k">${esc(c.recipient)} flies again without the swap</div><div class="v">${d(i.spare_ready_days)}</div>` +
-    `<div class="k">${esc(c.donor)} would fly again anyway</div><div class="v">${i.donor_free_days === 0 ? "flying today" : d(i.donor_free_days)}</div>` +
-    `<div class="k">Days the recipient gains</div><div class="v">${sgn(c.recipient_days_gained, 1)}</div>` +
-    `<div class="k">Downtime it creates for the donor</div><div class="v">${minus(c.donor_downtime_days)}</div>` +
-    `<div class="k">Re-failure risk on the moved part (modelled)</div><div class="v">${c.refailure_risk_delta < 0.0005 ? "none" : `+${(100 * c.refailure_risk_delta).toFixed(1)}% · ${minus(c.refailure_expected_days)}`}</div>` +
-    `<div class="k">Extra labour</div><div class="v">${c.extra_manhours} man-hours</div>` +
-    `<div class="k tot">Net over ${c.lookahead_days} days</div><div class="v tot ${net > 0 ? "pos" : ""}">${sgn(net, 1)}</div></div>` +
-    `<p class="fine">${c.assumptions.map(esc).join(" ")}</p>`;
+  const d = (v) => v == null ? "beyond horizon" : v.toFixed(0) + " d";
+  const row = (k, v, strong) => `<div class="flex justify-between gap-4 border-t border-line py-2 ${strong ? "font-semibold text-fg" : ""}"><span class="${strong ? "" : "text-fg-2"}">${k}</span><span class="tabular-nums ${strong && net > 0 ? "text-plan" : ""}">${v}</span></div>`;
+  return `<div class="rounded-lg border border-line bg-subtle/60 p-3.5">
+      <div class="text-[12px] text-fg-3">${c.aircraft_gained_now ? `+1 aircraft in ${c.swap_days} day${c.swap_days > 1 ? "s" : ""}` : "No aircraft gained"}</div>
+      <div class="mt-0.5 text-[28px] font-semibold tabular-nums tracking-[-0.02em] ${net > 0 ? "text-plan" : net < 0 ? "text-removal" : ""}">${sgn(net, 1)} <span class="text-[14px] font-medium text-fg-3">aircraft-days over ${c.lookahead_days} d</span></div>
+      <div class="mt-1 text-[13px] text-fg-2">${esc(c.verdict)}</div></div>
+    <div class="mt-3 text-[13px]">` +
+    row(`${esc(c.recipient)} flies again without the swap`, d(i.spare_ready_days)) +
+    row(`${esc(c.donor)} would fly again anyway`, i.donor_free_days === 0 ? "flying today" : d(i.donor_free_days)) +
+    row("Days the recipient gains", sgn(c.recipient_days_gained, 1)) +
+    row("Downtime created for the donor", minus(c.donor_downtime_days)) +
+    row("Re-failure risk on moved part (modelled)", c.refailure_risk_delta < 0.0005 ? "none" : `+${(100 * c.refailure_risk_delta).toFixed(1)}% · ${minus(c.refailure_expected_days)}`) +
+    row("Extra labour", `${c.extra_manhours} man-hours`) +
+    row(`Net over ${c.lookahead_days} days`, sgn(net, 1), true) +
+    `</div><p class="mt-3 text-[12px] text-fg-3">${c.assumptions.map(esc).join(" ")}</p>`;
 }
 function renderCann() {
   const cs = S.cannibalisation.candidates;
   $("#cann-h-days").textContent = S.cannibalisation.lookahead_days;
   const box = $("#cann");
-  if (!cs.length) { box.innerHTML = `<p class="cann-verdict">No aircraft is waiting on a part today in this scenario, so there is nothing to cannibalise. Ground fewer aircraft, or reset to today.</p>`; return; }
+  if (!cs.length) { box.innerHTML = `<p class="text-[13px] text-fg-2">No aircraft is waiting on a part today in this scenario, so there is nothing to cannibalise.</p>`; return; }
   cannSel = (cannPinned && cannSel && cs.find((c) => c.recipient === cannSel.recipient && c.donor === cannSel.donor && c.part === cannSel.part)) || cs[0];
   const recips = [...new Set(cs.map((c) => c.recipient + "|" + c.part))];
   const donors = cs.filter((c) => c.recipient === cannSel.recipient && c.part === cannSel.part);
-  box.innerHTML = `<div class="picks"><div><label for="c-rec">Aircraft waiting for a part</label><select id="c-rec">${recips.map((r) => { const [t, p] = r.split("|"); return `<option value="${r}" ${t === cannSel.recipient && p === cannSel.part ? "selected" : ""}>${t} · ${esc(SHORT[p] || p)}</option>`; }).join("")}</select></div>` +
-    `<div><label for="c-don">Donor</label><select id="c-don">${donors.map((c) => `<option value="${c.donor}" ${c.donor === cannSel.donor ? "selected" : ""}>${c.donor} · ${sgn(c.net_aircraft_days, 1)}</option>`).join("")}</select></div></div>` +
+  box.innerHTML = `<div class="mb-3 grid grid-cols-2 gap-2"><div><label for="c-rec" class="label mb-1 block">Waiting aircraft</label><select id="c-rec" class="sel">${recips.map((r) => { const [t, p] = r.split("|"); return `<option value="${r}" ${t === cannSel.recipient && p === cannSel.part ? "selected" : ""}>${t} · ${esc(SHORT[p] || p)}</option>`; }).join("")}</select></div>` +
+    `<div><label for="c-don" class="label mb-1 block">Donor</label><select id="c-don" class="sel">${donors.map((c) => `<option value="${c.donor}" ${c.donor === cannSel.donor ? "selected" : ""}>${c.donor} · ${sgn(c.net_aircraft_days, 1)}</option>`).join("")}</select></div></div>` +
     cannHTML(cannSel);
   $("#c-rec").addEventListener("change", (e) => { const [t, p] = e.target.value.split("|"); cannSel = cs.find((c) => c.recipient === t && c.part === p); cannPinned = true; renderCann(); });
   $("#c-don").addEventListener("change", (e) => { cannSel = donors.find((c) => c.donor === e.target.value); cannPinned = true; renderCann(); });
@@ -781,41 +475,51 @@ function renderAttribution() {
   const r = S[view];
   const lo = Math.max(0, Math.floor(r.ao * 100 - 1)), hi = Math.min(100, Math.ceil(r.ceiling * 100 + 0.5));
   const X = (v) => (100 * (v * 100 - lo) / (hi - lo)) + "%";
+  const row = (name, sw, track, v, sub, strong, accent) => `<div class="grid grid-cols-[104px_minmax(0,1fr)_76px] items-center gap-3 border-t sm:grid-cols-[minmax(0,180px)_minmax(0,1fr)_96px] border-line py-2 first:border-t-0">
+    <div class="truncate text-[13px] ${strong ? "font-medium text-fg" : "text-fg-2"}">${sw ? `<span class="mr-2 inline-block h-2.5 w-2.5 rounded-sm align-[-1px] ${sw}"></span>` : ""}${name}</div>
+    <div class="relative h-4">${track}</div>
+    <div class="text-right"><div class="text-[13px] font-medium tabular-nums ${accent ? "text-plan" : "text-fg"}">${v}</div><div class="text-2xs text-fg-3">${sub}</div></div></div>`;
+  const mark = (v, accent) => `<div class="absolute -top-0.5 h-5 w-[3px] -translate-x-1/2 rounded-sm ${accent ? "bg-plan" : "bg-fg"}" style="left:${X(v)}"></div>`;
   let run = r.ceiling;
-  let html = `<div class="wf-row total"><div class="wf-name">Ceiling</div><div class="wf-track"><div class="wf-mark" style="left:${X(r.ceiling)}"></div></div><div class="wf-v">${pct(r.ceiling)}<small>${r.planned_maintenance_days} d of inspections</small></div></div>`;
+  let html = row("Ceiling", "", mark(r.ceiling), pct(r.ceiling), `${r.planned_maintenance_days} d of inspections`, true);
   for (const c of CAUSE_ORDER) {
     const v = r.attribution[c];
     if (!v && c === "directed_grounding") continue;
     const left = run - v;
-    html += `<div class="wf-row"><div class="wf-name"><span class="sw" style="background:${SW[c]}"></span>${NAME[c]}</div>` +
-      `<div class="wf-track">${v ? `<div class="wf-bar" style="left:${X(left)};width:calc(${X(run)} - ${X(left)});background:${SW[c]}"></div>` : ""}</div>` +
-      `<div class="wf-v">−${(100 * v).toFixed(1)} pts<small>${r.attribution_days[c]} aircraft-days</small></div></div>`;
+    html += row(NAME[c], SWC[c], v ? `<div class="absolute top-0.5 h-3 rounded-sm ${SWC[c]}" style="left:${X(left)};width:calc(${X(run)} - ${X(left)})"></div>` : "", `−${(100 * v).toFixed(1)} pts`, `${r.attribution_days[c]} aircraft-days`);
     run = left;
   }
-  html += `<div class="wf-row total ${view === "plan" ? "ao" : ""}"><div class="wf-name">Achieved availability</div><div class="wf-track"><div class="wf-mark" style="left:${X(r.ao)}"></div></div><div class="wf-v">${pct(r.ao)}<small>${r.aircraft_days_available} of ${r.aircraft_days_total}</small></div></div>`;
-  const span = hi - lo, maxTicks = window.innerWidth < 600 ? 4 : 6;
-  const step = [1, 2, 5, 10, 20].find((st) => span / st <= maxTicks) || 20;
+  html += row("Achieved availability", "", mark(r.ao, view === "plan"), pct(r.ao), `${r.aircraft_days_available} of ${r.aircraft_days_total}`, true, view === "plan");
+  const span = hi - lo, step = [1, 2, 5, 10, 20].find((st) => span / st <= (window.innerWidth < 640 ? 2 : 6)) || 20;
   const ticks = [];
-  for (let v = Math.ceil(lo / step) * step; v <= hi; v += step) ticks.push(`<span style="left:${100 * (v - lo) / (hi - lo)}%">${v}%</span>`);
-  html += `<div class="wf-axis"><div></div><div class="ax">${ticks.join("")}</div><div></div></div>`;
+  for (let v = Math.ceil(lo / step) * step; v <= hi; v += step) ticks.push(`<span class="absolute -translate-x-1/2" style="left:${100 * (v - lo) / (hi - lo)}%">${v}%</span>`);
+  html += `<div class="grid grid-cols-[104px_minmax(0,1fr)_76px] gap-3 sm:grid-cols-[minmax(0,180px)_minmax(0,1fr)_96px]"><div></div><div class="relative h-4 text-2xs text-fg-3">${ticks.join("")}</div><div></div></div>`;
   $("#wf").innerHTML = html;
-  $("#wf-sub").innerHTML = `${view === "plan" ? "Under the FLIGHTLINE plan" : "Under current practice"}: why availability is ${pct(r.ao)} and not ${pct(r.ceiling)}. Each grounded aircraft-day is counted once, under its highest-priority reason, so the causes add up to the ${(100 * r.gap).toFixed(1)}-point gap exactly (${lost(r)} aircraft-days).`;
+  $("#wf-sub").textContent = `${view === "plan" ? "FLIGHTLINE plan" : "Current practice"}: why availability is ${pct(r.ao)}, not ${pct(r.ceiling)}. Each grounded aircraft-day is counted once under its highest-priority cause, so the causes sum to the ${(100 * r.gap).toFixed(1)}-point gap exactly (${lost(r)} aircraft-days).`;
 }
 
-// ---------- gate ----------
+// ---------- prognosis ----------
 function renderGate() {
   const L = S.prognosis.lrus.filter((x) => x.status !== "monitor"), c = S.prognosis.counts;
-  $("#gate-counts").innerHTML = `<div><b>${c.order_now}</b><span>order now</span></div><div class="insp"><b>${c.inspect}</b><span>inspect</span></div><div><b>${c.monitor}</b><span>monitored</span></div>`;
-  if (!L.length) { $("#gate").innerHTML = `<p class="deck">No part's interval reaches its decision window in this scenario.</p>`; return; }
+  const pill = (n, t, cls) => `<div class="rounded-lg border border-line px-3 py-1.5 text-right ${cls}"><div class="text-[18px] font-semibold tabular-nums leading-tight">${n}</div><div class="text-2xs text-fg-3">${t}</div></div>`;
+  $("#gate-counts").innerHTML = pill(c.order_now, "order now", "") + pill(c.inspect, "inspect", "text-spares") + pill(c.monitor, "monitored", "");
+  if (!L.length) { $("#gate").innerHTML = `<p class="text-[13px] text-fg-2">No part's interval reaches its decision window in this scenario.</p>`; return; }
   const maxD = Math.max(60, Math.ceil(Math.max(...L.map((x) => Math.max(x.rul_hi, x.decision_window_days))) / 20) * 20);
   const X = (v) => (100 * Math.min(v, maxD) / maxD) + "%";
-  let html = L.map((x) => `<div class="gate-row ${x.status === "inspect" ? "inspect" : ""}" title="${esc(x.part_name)}: ${x.rul_lo.toFixed(0)}–${x.rul_hi.toFixed(0)} days; window ${x.decision_window_days.toFixed(0)} days">` +
-    `<div class="who"><span class="id">${x.tail}</span> ${esc(SHORT[x.part] || x.part)}</div>` +
-    `<div class="gate-track"><div class="gate-win" style="width:${X(x.decision_window_days)}"></div><div class="gate-iv" style="left:${X(x.rul_lo)};width:calc(${X(x.rul_hi)} - ${X(x.rul_lo)})"></div><div class="gate-pt" style="left:${X(x.rul_point)}"></div></div>` +
-    `<div class="st">${x.status === "inspect" ? "Inspect" : "Order now"}</div></div>`).join("");
-  const ticks = []; for (let v = 0; v <= maxD; v += 20) ticks.push(`<span style="left:${100 * v / maxD}%">${v}</span>`);
-  html += `<div class="gate-axis"><div></div><div class="ax">${ticks.join("")}</div><div style="text-align:right">days</div></div>`;
-  html += `<div class="key"><span><i style="width:16px;height:12px;background:color-mix(in srgb, var(--ink) 8%, transparent);border-right:2px solid var(--ink-3)"></i>Decision window</span><span><i style="width:20px;height:6px;border-radius:3px;background:var(--ink-2)"></i>Interval narrow enough to act on: order now</span><span><i style="width:20px;height:6px;border-radius:3px;background:var(--c-spares)"></i>Wider than the window: the model abstains</span><span><i style="width:2px;height:13px;background:var(--ink)"></i>Point estimate</span></div>`;
+  const cols = "grid grid-cols-[96px_minmax(0,1fr)_64px] items-center gap-3 sm:grid-cols-[150px_minmax(0,1fr)_84px]";
+  let html = L.map((x) => `<div class="${cols} py-[3px]" title="${esc(x.part_name)}: ${x.rul_lo.toFixed(0)}–${x.rul_hi.toFixed(0)} days; window ${x.decision_window_days.toFixed(0)} days">
+    <div class="truncate text-[13px] text-fg-2"><span class="font-mono text-[11.5px] text-fg">${x.tail}</span> ${esc(SHORT[x.part] || x.part)}</div>
+    <div class="relative h-4"><div class="absolute inset-y-0 left-0 rounded-l-sm border-r-2 border-fg-3 bg-fg/[0.07]" style="width:${X(x.decision_window_days)}"></div>
+      <div class="absolute top-[5px] h-1.5 rounded-full ${x.status === "inspect" ? "bg-spares" : "bg-fg-2"}" style="left:${X(x.rul_lo)};width:calc(${X(x.rul_hi)} - ${X(x.rul_lo)})"></div>
+      <div class="absolute top-0.5 h-3 w-0.5 bg-fg" style="left:${X(x.rul_point)}"></div></div>
+    <div class="text-right text-[12px] font-medium ${x.status === "inspect" ? "text-spares" : "text-fg-2"}">${x.status === "inspect" ? "Inspect" : "Order now"}</div></div>`).join("");
+  const ticks = [], tstep = window.innerWidth < 640 ? 40 : 20; for (let v = 0; v <= maxD; v += tstep) ticks.push(`<span class="absolute -translate-x-1/2" style="left:${100 * v / maxD}%">${v}</span>`);
+  html += `<div class="${cols} mt-1"><div></div><div class="relative h-4 text-2xs text-fg-3">${ticks.join("")}</div><div class="text-right text-2xs text-fg-3">days</div></div>`;
+  html += `<div class="mt-3 flex flex-wrap gap-x-5 gap-y-1.5 text-[12px] text-fg-2">
+    <span class="inline-flex items-center gap-1.5"><span class="inline-block h-2.5 w-3.5 rounded-sm border-r-2 border-fg-3 bg-fg/[0.07]"></span>Decision window</span>
+    <span class="inline-flex items-center gap-1.5"><span class="inline-block h-1.5 w-4 rounded-full bg-fg-2"></span>90% interval inside the window: order now</span>
+    <span class="inline-flex items-center gap-1.5"><span class="inline-block h-1.5 w-4 rounded-full bg-spares"></span>Wider than the window: model abstains</span>
+    <span class="inline-flex items-center gap-1.5"><span class="inline-block h-3 w-0.5 bg-fg"></span>Point estimate</span></div>`;
   $("#gate").innerHTML = html;
 }
 
@@ -823,74 +527,80 @@ function renderGate() {
 function renderSpares() {
   const all = S.spares, rows = all.filter((r) => r.aircraft_days_unlocked > 0 || r.sortie_days_unlocked > 0);
   const max = Math.max(1, ...rows.map((r) => r.aircraft_days_unlocked));
-  $("#spares").innerHTML = `<thead><tr><th>Part</th><th>Base</th><th class="n">On shelf</th><th class="n">Lead</th><th class="n">Aircraft-days</th><th class="n">Sorties</th><th style="width:24%"></th></tr></thead><tbody>` +
-    (rows.length ? rows.map((r) => `<tr><td class="strong">${esc(r.part_name)}</td><td>${r.base.replace("BASE-", "Base ")}</td><td class="n">${r.on_hand}</td><td class="n">${r.lead_time_days} d</td>` +
-      `<td class="n gain">${sgn(r.aircraft_days_unlocked)}</td><td class="n">${sgn(r.sortie_days_unlocked)}</td><td><div class="unlock" style="width:${100 * Math.max(0, r.aircraft_days_unlocked) / max}%"></div></td></tr>`).join("")
-      : `<tr><td colspan="7">No single extra spare changes the projection in this scenario.</td></tr>`) + `</tbody>`;
-  $("#spares-note").textContent = `${all.length - rows.length} of ${all.length} stock locations would unlock nothing with one more unit: the shelf already covers every projected failure there, or it falls after the horizon. Failure timeline held fixed.`;
+  $("#sparestbl").innerHTML = `<thead><tr><th>Part</th><th>Base</th><th class="num">On shelf</th><th class="num">Lead</th><th class="num">Aircraft-days</th><th class="num">Sorties</th></tr></thead><tbody>` +
+    (rows.length ? rows.map((r) => `<tr><td class="whitespace-normal font-medium text-fg">${esc(r.part_name)}</td><td>${r.base.replace("BASE-", "Base ")}</td><td class="num">${r.on_hand}</td><td class="num">${r.lead_time_days} d</td>` +
+      `<td class="num font-medium text-plan">${sgn(r.aircraft_days_unlocked)}</td><td class="num">${sgn(r.sortie_days_unlocked)}</td></tr>`).join("")
+      : `<tr><td colspan="6">No single extra spare changes the projection in this scenario.</td></tr>`) + `</tbody>`;
+  $("#spares-note").textContent = `${all.length - rows.length} of ${all.length} stock locations unlock nothing with one more unit: the shelf already covers every projected failure there, or it falls after the horizon. Failure timeline held fixed.`;
 }
 function renderDepot() {
   const d = S.depot, H = S.horizon_days;
   const X = (v) => (100 * Math.max(0, Math.min(v, H)) / H) + "%", W = (a, b) => `calc(${X(b)} - ${X(a)})`;
-  $("#dp-sub").innerHTML = `${Object.entries(d.depots).map(([k, v]) => `${k}: ${v.bays} bay${v.bays > 1 ? "s" : ""}`).join(", ")}, one induction crew each. Mean wait past the due date: ${d.mean_queue_days.baseline.toFixed(1)} days under current practice, <b style="color:var(--magenta)">${d.mean_queue_days.plan.toFixed(1)}</b> under the plan.`;
+  $("#dp-sub").textContent = `${Object.entries(d.depots).map(([k, v]) => `${k}: ${v.bays} bay${v.bays > 1 ? "s" : ""}`).join(", ")}, one induction crew each. Mean wait past due: ${d.mean_queue_days.baseline.toFixed(1)} d under current practice, ${d.mean_queue_days.plan.toFixed(1)} d under the plan.`;
   let html = d.inductions.map((r) => {
     const b = r.baseline, p = r.plan;
-    let s = `<div class="g-row"><div class="tail">${r.tail}</div><div class="g-track">`;
-    if (b) { if (b.start > r.due) s += `<div class="g-late" style="left:${X(r.due)};width:${W(r.due, b.start)}"></div>`; s += `<div class="g-bar prac" style="left:${X(b.start)};width:${W(b.start, b.start + r.duration)}" title="Current practice: ${b.depot} from day ${b.start}"></div>`; }
-    if (p) s += `<div class="g-bar plan" style="left:${X(p.start)};width:${W(p.start, p.start + r.duration)}" title="Plan: ${p.depot} from day ${p.start}"></div>`;
-    return s + `<div class="g-due" style="left:${X(r.due)}" title="Due day ${r.due}"></div></div></div>`;
+    let s = `<div class="grid h-7 grid-cols-[64px_minmax(0,1fr)] items-center gap-3"><div class="font-mono text-[11.5px] text-fg-2">${r.tail}</div><div class="relative h-full border-b border-line">`;
+    if (b) { if (b.start > r.due) s += `<div class="wait absolute top-[5px] h-2" style="left:${X(r.due)};width:${W(r.due, b.start)}"></div>`; s += `<div class="absolute top-[5px] h-2 rounded-sm bg-practice/60" style="left:${X(b.start)};width:${W(b.start, b.start + r.duration)}" title="Current practice: ${b.depot} from day ${b.start}"></div>`; }
+    if (p) s += `<div class="absolute top-[15px] h-2 rounded-sm bg-plan" style="left:${X(p.start)};width:${W(p.start, p.start + r.duration)}" title="Plan: ${p.depot} from day ${p.start}"></div>`;
+    return s + `<div class="due" style="left:${X(r.due)};top:0" title="Due day ${r.due}"></div></div></div>`;
   }).join("");
-  html += `<div class="key"><span><i style="width:20px;height:8px;border-radius:3px;background:var(--practice);opacity:.55"></i>Current practice</span><span><i style="width:20px;height:8px;border-radius:3px;background:var(--magenta)"></i>FLIGHTLINE plan</span><span><i style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:7px solid var(--ink)"></i>Due date</span><span><i style="width:20px;height:8px;background:repeating-linear-gradient(90deg,var(--c-depot) 0 2px,transparent 2px 4px)"></i>Waiting for a bay</span></div>`;
+  html += `<div class="mt-3 flex flex-wrap gap-x-5 gap-y-1.5 text-[12px] text-fg-2">
+    <span class="inline-flex items-center gap-1.5"><span class="inline-block h-2 w-4 rounded-sm bg-practice/60"></span>Current practice</span>
+    <span class="inline-flex items-center gap-1.5"><span class="inline-block h-2 w-4 rounded-sm bg-plan"></span>FLIGHTLINE plan</span>
+    <span class="inline-flex items-center gap-1.5"><span class="relative inline-block h-2 w-3"><span class="due" style="left:50%;top:1px"></span></span>Due date</span>
+    <span class="inline-flex items-center gap-1.5"><span class="wait inline-block h-2 w-4"></span>Waiting for a bay</span></div>`;
   $("#gantt").innerHTML = html;
 }
 
-// ---------- metrics ----------
+// ---------- model accuracy ----------
 function renderMetrics() {
   const m = S.metrics;
-  if (!m || !m.models || m.models.flightline.median_lead_over_window == null) { $("#cmp").innerHTML = `<p class="deck">Run <span class="id">python -m flightline.seed</span> to compute the comparison.</p>`; return; }
+  if (!m || !m.models || m.models.flightline.median_lead_over_window == null) { $("#cmp").innerHTML = `<p class="text-[13px] text-fg-2">Run <span class="font-mono">python -m flightline.seed</span> to compute the comparison.</p>`; return; }
   const f = m.models.flightline, s = m.models.short_horizon, bt = m.backtest;
-  const col = (x, ours, b1) => `<div class="${ours ? "ours" : ""}"><h3>${esc(x.name)}</h3><div class="big">${pct(x.aph, 0)}</div><div class="bl">of failures warned in time to act</div><div class="kv">` +
-    `<div class="k">RMSE, ${esc(x.rmse_target)}</div><div class="v">${x.rmse_cycles.toFixed(1)} cycles</div>` +
-    `<div class="k">RMSE, last ${m.cap_cycles} cycles before failure</div><div class="v">${x.rmse_last_cycles.toFixed(1)} cycles</div>` +
-    `<div class="k">Median warning lead ÷ decision window</div><div class="v">${x.median_lead_over_window.toFixed(2)}×</div>` +
-    `<div class="k">Aircraft-days lost to late warnings, per 100 failures</div><div class="v">${x.aircraft_days_lost_per_100_failures.toFixed(0)}</div>` +
-    (b1 ? `<div class="k tot">Backtest: sorties lost in 90 days</div><div class="v tot ${ours ? "pos" : ""}">${b1.sortie_days_lost}</div>` : "") + `</div></div>`;
+  const row = (k, v, strong, accent) => `<div class="flex justify-between gap-4 border-t border-line py-2 text-[13px] ${strong ? "font-semibold text-fg" : ""}"><span class="${strong ? "" : "text-fg-2"}">${k}</span><span class="tabular-nums ${accent ? "text-plan" : ""}">${v}</span></div>`;
+  const col = (x, ours, b1) => `<div class="rounded-lg border ${ours ? "border-plan/40" : "border-line"} p-4">
+      <div class="flex items-start justify-between gap-3"><div class="text-[13px] font-medium ${ours ? "text-fg" : "text-fg-2"}">${esc(x.name)}</div>${ours ? `<span class="delta delta-up">FLIGHTLINE</span>` : ""}</div>
+      <div class="mt-2 text-[34px] font-semibold tabular-nums tracking-[-0.02em] ${ours ? "text-plan" : "text-practice"}">${pct(x.aph, 0)}</div>
+      <div class="mb-2 text-[12px] text-fg-3">of failures warned in time to act</div>` +
+    row(`RMSE, ${esc(x.rmse_target)}`, `${x.rmse_cycles.toFixed(1)} cycles`) +
+    row(`RMSE, last ${m.cap_cycles} cycles before failure`, `${x.rmse_last_cycles.toFixed(1)} cycles`) +
+    row("Median warning lead ÷ decision window", `${x.median_lead_over_window.toFixed(2)}×`) +
+    row("Aircraft-days lost to late warnings / 100 failures", x.aircraft_days_lost_per_100_failures.toFixed(0)) +
+    (b1 ? row("Backtest: sorties lost in 90 days", b1.sortie_days_lost, true, ours) : "") + `</div>`;
   $("#cmp").innerHTML = col(s, false, bt && bt.short_horizon) + col(f, true, bt && bt.flightline);
-  $("#ft-note").textContent = m.fine_tuning.length ? `APH at each size: ${m.fine_tuning.map((r) => `${r.labelled_failures} → ${pct(r.aph, 0)}`).join(", ")}. With few labelled failures the interval stays honest by warning earlier; more data tightens it toward the window.` : "";
+  $("#ft-note").textContent = m.fine_tuning.length ? `APH at each size: ${m.fine_tuning.map((r) => `${r.labelled_failures} → ${pct(r.aph, 0)}`).join(", ")}. With few labelled failures the interval stays honest by warning earlier.` : "";
   const sAcc = s.rmse_last_cycles < f.rmse_last_cycles;
+  const h = (t, p) => `<div><div class="mb-1 text-[13px] font-semibold text-fg">${t}</div><p>${p}</p></div>`;
   $("#honest").innerHTML =
-    `<div><h3>Read the two columns together</h3><p>${sAcc ? `The short-horizon model is more accurate near failure (${s.rmse_last_cycles.toFixed(1)} vs ${f.rmse_last_cycles.toFixed(1)} cycles)` : `Its RMSE of ${s.rmse_cycles.toFixed(1)} cycles looks far better`}, and it still loses: it cannot see past ${m.cap_cycles} cycles, about ${s.warns_up_to_days.toFixed(0)} days, and most spares take longer than that to arrive.</p></div>` +
-    `<div><h3>What is real here</h3><p>${S.provenance.real_data ? `Degradation trained and tested on ${esc(S.provenance.degradation)}.` : "The method is real; the data is not."} Fleet, stock, depots and sorties are a synthetic scenario (seed ${S.provenance.seed}). Every number on this page is computed from it. Tail numbers and bases are placeholders.</p></div>` +
-    `<div><h3>What carries over to a real fleet</h3><p>Swap the degradation model and everything above it stays: the twin, the simulator, the attribution, the optimiser, the cannibalisation price and the abstention gate. Conformal calibration needs only a held-out set of real failures to keep its 90% promise.</p></div>`;
-}
-function renderFoot() {
-  $("#foot").textContent = `FLIGHTLINE · SIH26249 · Runs offline on one machine: one SQLite file, an open-source stack, no cloud call. ${S.provenance.badge}.`;
+    h("Read the two columns together", `${sAcc ? `The short-horizon model is more accurate near failure (${s.rmse_last_cycles.toFixed(1)} vs ${f.rmse_last_cycles.toFixed(1)} cycles)` : `Its RMSE of ${s.rmse_cycles.toFixed(1)} cycles looks far better`}, and still loses: it cannot see past ${m.cap_cycles} cycles (≈${s.warns_up_to_days.toFixed(0)} days), and most spares take longer to arrive.`) +
+    h("What is real here", `${S.provenance.real_data ? `Degradation trained and tested on ${esc(S.provenance.degradation)}.` : "The method is real; the data is not."} Fleet, stock, depots and sorties are a synthetic scenario (seed ${S.provenance.seed}). Every number is computed from it.`) +
+    h("What carries over", "Swap the degradation model and everything above it stays: twin, simulator, attribution, optimiser, cannibalisation price and abstention gate. Conformal calibration needs only a held-out set of real failures.");
 }
 
 // ---------- charts ----------
 function mk(id, cfg) { if (charts[id]) charts[id].destroy(); charts[id] = new Chart(document.getElementById(id), cfg); }
 function renderCharts() {
   if (!window.Chart || !S) return;
-  const ink3 = css("--ink-3"), rule = css("--rule"), mag = css("--magenta"), prac = css("--practice"), ink2 = css("--ink-2");
-  Chart.defaults.font.family = '"Barlow", system-ui, sans-serif';
-  Chart.defaults.font.size = 12.5;
-  Chart.defaults.color = ink3;
-  Chart.defaults.borderColor = rule;
+  const fg3 = rgb("fg-3"), line = rgb("line"), plan = rgb("plan"), prac = rgb("practice"), fg2 = rgb("fg-2");
+  Chart.defaults.font.family = 'Geist, system-ui, sans-serif';
+  Chart.defaults.font.size = 12;
+  Chart.defaults.color = fg3;
+  Chart.defaults.borderColor = line;
   Chart.defaults.animation = false;
-  Object.assign(Chart.defaults.plugins.legend.labels, { boxWidth: 18, boxHeight: 3, padding: 14 });
-  Object.assign(Chart.defaults.plugins.tooltip, { backgroundColor: css("--ink"), titleColor: css("--sheet"), bodyColor: css("--sheet"), borderWidth: 0, padding: 10, cornerRadius: 6 });
+  Object.assign(Chart.defaults.plugins.legend.labels, { boxWidth: 14, boxHeight: 3, padding: 14 });
+  Object.assign(Chart.defaults.plugins.tooltip, { backgroundColor: rgb("fg"), titleColor: rgb("panel"), bodyColor: rgb("panel"), borderWidth: 0, padding: 9, cornerRadius: 6 });
   const d = S.daily;
   mk("daily", {
     type: "line",
     data: { labels: d.day, datasets: [
-      { label: "Tasked", data: d.tasked, borderColor: ink2, borderWidth: 1.5, borderDash: [4, 4], pointRadius: 0, stepped: "middle" },
-      { label: "Current practice", data: d.available_baseline, borderColor: prac, borderWidth: 2, pointRadius: 0, stepped: "middle" },
-      { label: "FLIGHTLINE plan", data: d.available_plan, borderColor: mag, borderWidth: 2.5, pointRadius: 0, stepped: "middle" },
+      { label: "Tasked", data: d.tasked, borderColor: fg2, borderWidth: 1.25, borderDash: [4, 4], pointRadius: 0, stepped: "middle" },
+      { label: "Current practice", data: d.available_baseline, borderColor: prac, borderWidth: 1.75, pointRadius: 0, stepped: "middle" },
+      { label: "FLIGHTLINE plan", data: d.available_plan, borderColor: plan, borderWidth: 2.25, pointRadius: 0, stepped: "middle" },
     ] },
     options: { responsive: true, maintainAspectRatio: false, interaction: { mode: "index", intersect: false },
-      plugins: { legend: { position: "top", align: "start" }, tooltip: { callbacks: { title: (it) => "Day " + it[0].label } } },
+      plugins: { legend: { position: "top", align: "end" }, tooltip: { callbacks: { title: (it) => "Day " + it[0].label } } },
       scales: { x: { grid: { display: false }, ticks: { callback: (v) => (v % 14 === 0 ? "Day " + v : ""), autoSkip: false, maxRotation: 0 } },
-        y: { suggestedMin: 0, suggestedMax: 24, grid: { color: rule }, border: { display: false }, title: { display: true, text: "aircraft" } } } },
+        y: { suggestedMin: 0, suggestedMax: 24, grid: { color: line }, border: { display: false }, title: { display: true, text: "aircraft" } } } },
   });
   const m = S.metrics;
   if (!m || !m.per_part || !m.fine_tuning) return;
@@ -899,22 +609,22 @@ function renderCharts() {
     type: "bar",
     data: { labels: parts.map((p) => [SHORT[p] || p, m.per_part[p].window_days + " d"]), datasets: [
       { label: "Short-horizon (capped)", data: parts.map((p) => 100 * m.per_part[p].short_horizon), backgroundColor: prac, borderRadius: 3, barPercentage: .8, categoryPercentage: .66 },
-      { label: "FLIGHTLINE", data: parts.map((p) => 100 * m.per_part[p].flightline), backgroundColor: mag, borderRadius: 3, barPercentage: .8, categoryPercentage: .66 },
+      { label: "FLIGHTLINE", data: parts.map((p) => 100 * m.per_part[p].flightline), backgroundColor: plan, borderRadius: 3, barPercentage: .8, categoryPercentage: .66 },
     ] },
-    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "top", align: "start" }, tooltip: { callbacks: { label: (c) => `${c.dataset.label}: ${c.raw.toFixed(0)}% warned in time` } } },
-      scales: { x: { grid: { display: false }, ticks: { maxRotation: 0, autoSkip: false } }, y: { min: 0, max: 100, border: { display: false }, grid: { color: rule }, ticks: { callback: (v) => v + "%" } } } },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "top", align: "end" }, tooltip: { callbacks: { label: (c) => `${c.dataset.label}: ${c.raw.toFixed(0)}% warned in time` } } },
+      scales: { x: { grid: { display: false }, ticks: { maxRotation: 0, autoSkip: false } }, y: { min: 0, max: 100, border: { display: false }, grid: { color: line }, ticks: { callback: (v) => v + "%" } } } },
   });
   mk("finetune", {
     type: "line",
     data: { labels: m.fine_tuning.map((r) => r.labelled_failures), datasets: [
-      { label: "Warning lead ÷ window", data: m.fine_tuning.map((r) => r.median_lead_over_window), borderColor: mag, borderWidth: 2.5, pointRadius: 4.5, pointBackgroundColor: mag, pointBorderColor: css("--sheet"), pointBorderWidth: 2 },
+      { label: "Warning lead ÷ window", data: m.fine_tuning.map((r) => r.median_lead_over_window), borderColor: plan, borderWidth: 2.25, pointRadius: 4, pointBackgroundColor: plan, pointBorderColor: rgb("panel"), pointBorderWidth: 2 },
     ] },
     options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { title: (it) => it[0].label + " labelled failures", label: (c) => `warns ${c.raw.toFixed(2)}× the window ahead · APH ${pct(m.fine_tuning[c.dataIndex].aph, 0)}` } } },
       scales: { x: { title: { display: true, text: "labelled run-to-failure events" }, grid: { display: false } },
-        y: { suggestedMin: 1, border: { display: false }, grid: { color: rule }, title: { display: true, text: "× decision window" }, ticks: { callback: (v) => v.toFixed(1) + "×" } } } },
+        y: { suggestedMin: 1, border: { display: false }, grid: { color: line }, title: { display: true, text: "× decision window" }, ticks: { callback: (v) => v.toFixed(1) + "×" } } } },
   });
 }
-window.addEventListener("resize", () => { if (S) renderAttribution(); });
+window.addEventListener("resize", () => { if (S) { renderAttribution(); renderGate(); } });
 
 (async function boot() {
   try {
@@ -924,7 +634,7 @@ window.addEventListener("resize", () => { if (S) renderAttribution(); });
     if (document.fonts && document.fonts.ready) await document.fonts.ready;
     render();
   } catch (e) {
-    $("#skeleton").innerHTML = `<span class="err">Could not load the fleet: ${esc(e.message)}. Is the server running? Start it with <span class="id">uvicorn flightline.api:app</span>.</span>`;
+    $("#skeleton").innerHTML = `<span class="text-removal">Could not load the fleet: ${esc(e.message)}. Is the server running? Start it with <span class="font-mono">uvicorn flightline.api:app</span>.</span>`;
   }
 })();
 </script>
