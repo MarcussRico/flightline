@@ -253,10 +253,11 @@ def _round(d):
         return {k: _round(v) for k, v in d.items()}
     if isinstance(d, (list, tuple)):
         return [_round(v) for v in d]
+    # Six places, so a fraction formatted to 0.1% downstream is never rounded twice.
     if isinstance(d, float):
-        return round(d, 4)
+        return round(d, 6)
     if isinstance(d, (np.floating,)):
-        return round(float(d), 4)
+        return round(float(d), 6)
     if isinstance(d, (np.integer,)):
         return int(d)
     return d

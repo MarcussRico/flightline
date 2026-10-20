@@ -240,7 +240,7 @@ input[type=range] { width: 100%; accent-color: var(--ink); height: 22px; margin:
 .cann-verdict { color: var(--ink-2); font-size: 13.5px; margin: 0 0 14px; }
 .cann-pick { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 8px; margin-bottom: 14px; }
 .cann-pick label { font-size: 11px; color: var(--ink-3); display: block; }
-select { width: 100%; background: var(--panel-2); border: 1px solid var(--rule-strong); border-radius: 4px; padding: 6px 8px; font-family: "B612 Mono", monospace; font-size: 12.5px; }
+select { width: 100%; background: var(--panel-2); border: 1px solid var(--rule-strong); border-radius: 4px; padding: 6px 8px; font-family: "B612", sans-serif; font-size: 12.5px; }
 .kv { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 0 12px; font-size: 13px; }
 .kv div { padding: 5px 0; border-top: 1px solid var(--rule); }
 .kv .k { color: var(--ink-2); }
@@ -495,7 +495,8 @@ const $ = (s, r = document) => r.querySelector(s);
 const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const pct = (x, d = 1) => (100 * x).toFixed(d) + "%";
-const sgn = (x, d = 0) => (x > 0 ? "+" : x < 0 ? "−" : "±") + Math.abs(x).toFixed(d);
+const sgn = (x, d = 0) => { const v = Math.abs(x).toFixed(d); return +v === 0 ? "±" + v : (x > 0 ? "+" : "−") + v; };
+const minus = (x, d = 1) => (+Math.abs(x).toFixed(d) === 0 ? "0" : "−" + Math.abs(x).toFixed(d));
 const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
 
 let S = null;               // current state from the API
@@ -783,8 +784,8 @@ function cannHTML(c) {
     `<div class="k">${esc(c.recipient)} flies again without the swap</div><div class="v">${d(i.spare_ready_days)}</div>` +
     `<div class="k">${esc(c.donor)} would fly again anyway</div><div class="v">${i.donor_free_days === 0 ? "flying today" : d(i.donor_free_days)}</div>` +
     `<div class="k">Recipient days gained</div><div class="v">${sgn(c.recipient_days_gained, 1)}</div>` +
-    `<div class="k">Donor downtime it creates</div><div class="v">−${c.donor_downtime_days.toFixed(1)}</div>` +
-    `<div class="k">Re-failure risk on the moved part <span title="Modelled assumption">(modelled)</span></div><div class="v">+${(100 * c.refailure_risk_delta).toFixed(1)}% · −${c.refailure_expected_days.toFixed(1)}</div>` +
+    `<div class="k">Donor downtime it creates</div><div class="v">${minus(c.donor_downtime_days)}</div>` +
+    `<div class="k">Re-failure risk on the moved part <span title="Modelled assumption">(modelled)</span></div><div class="v">${c.refailure_risk_delta < 0.0005 ? "none" : `+${(100 * c.refailure_risk_delta).toFixed(1)}% · ${minus(c.refailure_expected_days)}`}</div>` +
     `<div class="k">Extra labour</div><div class="v">${c.extra_manhours} man-h</div>` +
     `<div class="k tot">Net over ${c.lookahead_days} days</div><div class="v tot">${sgn(net, 1)}</div></div>` +
     `<p class="fine">${c.assumptions.map(esc).join(" ")}</p>`;
