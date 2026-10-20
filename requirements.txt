@@ -1,0 +1,9 @@
+fastapi==0.151.0
+uvicorn==0.54.0
+networkx==3.6.1
+numpy==2.4.1
+scipy==1.16.3
+scikit-learn==1.9.1
+ortools==9.15.6755
+pytest==9.1.1
+httpx==0.28.1
