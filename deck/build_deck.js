@@ -1,4 +1,4 @@
-// FLIGHTLINE · SIH26249 idea deck in the SIH idea-submission template format.
+// FLIGHTLINE · SIH26249 idea deck: the six-slide SIH idea-submission template.
 // Every number is read from numbers.json, which is dumped from the running engine.
 const pptxgen = require("pptxgenjs");
 const fs = require("fs");
@@ -102,6 +102,17 @@ function content(section) {
 
 const D = N.default, G = N.ground, DL = N.delay, SU = N.surge, M = N.metrics;
 const FL = M.models.flightline, SH = M.models.short_horizon, BT = M.backtest;
+// The official SIH idea template is six slides with fixed pointers; this deck keeps them verbatim.
+const MAG = "A3196F";
+const wordmark = (rest, o = {}) => [
+  { text: "FLIGHT", options: { bold: true, charSpacing: 2, ...o } },
+  { text: "LINE", options: { bold: true, charSpacing: 2, color: MAG, ...o } },
+  { text: rest, options: { bold: false, ...o } },
+];
+const signed = (v, d = 1) => (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(v).toFixed(d);
+const tail02 = D.cann.filter((c) => c[1] === "TAIL-02");
+const fromDown = tail02.find((c) => c[4] > 0 && c[4] < 1000);
+const fromFlying = tail02.find((c) => c[4] === 0);
 
 // ================================================================ 1 · TITLE PAGE
 pres.addSection({ title: "Title" });
@@ -115,127 +126,79 @@ pres.addSection({ title: "Title" });
   s.addShape(pres.shapes.HEXAGON, { x: 6.55, y: 4.45, w: 1.0, h: 1.15, rotate: 90, fill: { color: "ECECEC" }, line: { color: "ECECEC", width: 0 }, objectName: nm("hex") });
   s.addImage({ path: SHOT("sih_bulb.png"), x: 8.75, y: 2.3, w: 2.6, h: 2.6 * 703 / 615, objectName: nm("emblem"), altText: "Smart India Hackathon emblem" });
   const rows = [
-    ["Problem Statement ID: ", "SIH26249"],
-    ["Problem Statement Title: ", "Air Power — Predictive Maintenance & Fleet Availability"],
-    ["Organisation: ", "Ministry of Defence"],
-    ["Idea: ", "WORDMARK"],
-    ["Team Name: ", "Code Byte"],
+    ["Problem Statement ID: ", [{ text: "SIH26249" }]],
+    ["Problem Statement Title: ", [{ text: "Air Power — Predictive Maintenance & Fleet Availability (Ministry of Defence)" }]],
+    ["Theme: ", [{ text: "[fill in as listed on the SIH portal]", options: { italic: true, color: "C0392B" } }]],
+    ["PS Category: ", [{ text: "Software" }]],
+    ["Team Name: ", [{ text: "Code Byte" }]],
+    ["Idea: ", wordmark(" — Fleet Availability Twin").map((r) => ({ text: r.text, options: { ...r.options } }))],
   ];
-  const MAG = "A3196F";
-  s.addText(rows.map(([k, v], i) => v === "WORDMARK" ? [
+  s.addText(rows.map(([k, runs], i) => [
     { text: k, options: { bold: true, bullet: { indent: 18 } } },
-    { text: "FLIGHT", options: { bold: true, charSpacing: 2 } },
-    { text: "LINE", options: { bold: true, charSpacing: 2, color: MAG } },
-    { text: " — Fleet Availability Twin", options: { bold: false, breakLine: i < rows.length - 1 } },
-  ] : [
-    { text: k, options: { bold: true, bullet: { indent: 18 } } },
-    { text: v, options: { bold: false, breakLine: i < rows.length - 1 } },
-  ]).flat(), { isTextBox: true, x: 0.55, y: 2.3, w: 6.4, h: 4.3, fontFace: "Arial", fontSize: 20, color: "000000", paraSpaceAfter: 14, valign: "top", margin: 0, objectName: nm("details") });
+    ...runs.map((r, j) => ({ text: r.text, options: { bold: false, ...(r.options || {}), breakLine: j === runs.length - 1 && i < rows.length - 1 } })),
+  ]).flat(), { isTextBox: true, x: 0.55, y: 2.3, w: 6.3, h: 4.5, fontFace: "Arial", fontSize: 18, color: "000000", paraSpaceAfter: 12, valign: "top", margin: 0, objectName: nm("details") });
   s.addNotes("Keep it plain. One sentence: every other team predicts when a part fails; FLIGHTLINE predicts how many sortie-days the fleet is about to lose, and names the single action that saves the most of them.");
 }
 
 // ================================================================ 2 · IDEA TITLE
-pres.addSection({ title: "Problem and idea" });
+pres.addSection({ title: "Idea" });
 {
-  const s = content("Problem and idea");
+  const s = content("Idea");
   s.addText("IDEA TITLE", { placeholder: "title" });
-  text(s, [{ text: "FLIGHT", options: { charSpacing: 2 } }, { text: "LINE", options: { charSpacing: 2, color: "A3196F" } }, { text: " — Fleet Availability Twin", options: {} }], { x: 0.45, y: 1.2, w: 12.4, h: 0.38, fontSize: 20, bold: true });
+  text(s, wordmark(" — Fleet Availability Twin"), { x: 0.45, y: 1.2, w: 12.4, h: 0.38, fontSize: 20, bold: true });
   text(s, "A decision layer that joins the four maintenance silos, predicts how many sortie-days the fleet is about to lose, and names the action that saves the most of them — scored in aircraft-days, not RMSE.", { x: 0.45, y: 1.58, w: 12.4, h: 0.55, fontSize: 14, color: "222222" });
-  const X = [0.45, 4.68, 8.91], BW = 4.0, Y = 2.3, BH = 4.5;
-  X.forEach((x) => boxed(s, x, Y, BW, BH));
-  const head = (x, t) => text(s, t, { x: x + 0.2, y: Y + 0.15, w: BW - 0.4, h: 0.5, fontSize: 21, bold: true, color: C.accent1 });
-  head(X[0], "THE PROBLEM :");
+  const Y = 2.25, BH = 4.62;
+  const cols = [[0.45, 3.75], [4.4, 4.3], [8.9, 3.98]];
+  cols.forEach(([x, w]) => boxed(s, x, Y, w, BH));
+  const head = ([x, w], t) => text(s, t, { x: x + 0.18, y: Y + 0.14, w: w - 0.36, h: 0.45, fontSize: 20, bold: true, color: C.accent1 });
+
+  head(cols[0], "THE PROBLEM :");
   text(s, [
-    { text: "The statement names fragmentation, not accuracy: ", options: { bold: true, breakLine: false } },
+    { text: "The statement names fragmentation, not accuracy: ", options: { bold: true } },
     { text: "“fragmented and largely reactive … not adequately integrated”.", options: { italic: true, breakLine: true } },
     { text: " ", options: { breakLine: true, fontSize: 6 } },
     ...bullets([
       "Health monitoring, technical records, spares and MRO agencies never meet",
       "A fault predicted on Tuesday collides with a six-week spares lead time — the aircraft sits on the ground anyway",
+      "Cannibalisation is signed without a price",
       "RUL models report RMSE; nobody reports aircraft-days",
     ], { gap: 6 }),
-  ], { x: X[0] + 0.2, y: Y + 0.72, w: BW - 0.4, h: BH - 0.9, fontSize: 14 });
-  head(X[1], "FLIGHTLINE :");
-  text(s, [
-    { text: "ONE GRAPH OF THE FOUR SILOS", options: { bold: true, breakLine: true } },
-    { text: "tail → LRU → part → stock → depot bay → sorties", options: { breakLine: true } },
-    { text: "PROGNOSIS WITH HONEST INTERVALS", options: { bold: true, breakLine: true } },
-    { text: "Remaining life as a 90% conformal interval; abstains when unsure", options: { breakLine: true } },
-    { text: "FLEET SIMULATOR + OPTIMISER", options: { bold: true, breakLine: true } },
-    { text: "90 days, day by day; CP-SAT re-sequences depot inductions and expedites", options: { breakLine: true } },
-    { text: "CANNIBALISATION, PRICED", options: { bold: true, breakLine: true } },
-    { text: "Every swap returns a net in aircraft-days over 30 days", options: {} },
-  ], { x: X[1] + 0.2, y: Y + 0.72, w: BW - 0.4, h: BH - 0.9, fontSize: 13.5, paraSpaceAfter: 3 });
-  head(X[2], "WHAT THE OFFICER GETS :");
-  text(s, [
-    ...bullets([
-      "Ranked actions, each scored in aircraft-days gained",
-      "“Why this number?” — the trace of which silo said what",
-      "Availability attribution: why Ao is what it is",
-      "Live what-if: ground aircraft, delay spares, surge sorties",
-      "Printable draft maintenance order",
-    ], { gap: 6, more: true }),
-    { text: " ", options: { breakLine: true, fontSize: 6 } },
-    { text: "It ranks and prices. It never authorises — the signature stays with the officer.", options: { bold: true } },
-  ], { x: X[2] + 0.2, y: Y + 1.12, w: BW - 0.4, h: BH - 1.25, fontSize: 14 });
-  s.addNotes("The statement does not say the models are inaccurate. It says the data never meets. So we do not compete on accuracy: we join the four silos and optimise the number the Air Force already runs on — operational availability.");
-}
+  ], { x: cols[0][0] + 0.18, y: Y + 0.68, w: cols[0][1] - 0.34, h: BH - 0.8, fontSize: 13.5 });
 
-// ================================================================ 3 · THE REFRAME (APH)
-{
-  const s = content("Problem and idea");
-  s.addText("THE REFRAME: APH", { placeholder: "title" });
-  card(s, 0.45, 1.25, 12.43, 1.0, { fill: HEX.tint, line: HEX.tint });
-  text(s, [
-    { text: "APH  =  P( t", options: {} }, { text: "warning", options: { subscript: true } },
-    { text: "  ≤  t", options: {} }, { text: "failure", options: { subscript: true } },
-    { text: "  −  ( spares lead + depot queue + bay time ) )", options: {} },
-  ], { x: 0.6, y: 1.3, w: 8.6, h: 0.9, fontFace: "Cambria", fontSize: 20, color: C.text2, valign: "middle" });
-  text(s, "A prediction is worth nothing if it arrives after the last day you could have acted on it.", { x: 9.25, y: 1.3, w: 3.5, h: 0.9, fontSize: 13, italic: true, color: C.text2, valign: "middle" });
-
-  text(s, "Two real models · same training data · same " + N.n_test_units + " held-out run-to-failure units", { x: 0.45, y: 2.45, w: 7.3, h: 0.32, fontSize: 13, bold: true });
-  const hdr = (t) => ({ text: t, options: { bold: true, color: "FFFFFF", fill: { color: HEX.navy }, align: "center" } });
-  const row = (k, a, b, strong) => [
-    { text: k, options: { color: "222222" } },
-    { text: a, options: { align: "center", color: "444444" } },
-    { text: b, options: { align: "center", bold: true, color: strong ? C.accent1 : "000000" } },
+  head(cols[1], "THE SOLUTION :");
+  const sol = [
+    ["One graph of the four silos", "tail → LRU → part → stock → depot bay → sorties"],
+    ["Prognosis with honest intervals", "Remaining life as a 90% conformal interval; abstains when unsure"],
+    ["Fleet simulator + CP-SAT optimiser", "90 days, day by day; re-sequences depot inductions and expedites"],
+    ["Ranked actions in aircraft-days", "Each with “Why this number?”; live what-if re-solves in ≈" + (D.ms / 1000).toFixed(1) + "\u00a0s"],
   ];
-  s.addTable([
-    [hdr("Measure"), hdr(`Short-horizon model\n(RUL capped at ${M.cap_cycles}, literature convention)`), hdr("FLIGHTLINE\n(uncapped + conformal)")],
-    row("RMSE on the model's own target", SH.rmse_cycles.toFixed(1) + " cycles", FL.rmse_cycles.toFixed(1) + " cycles"),
-    row(`RMSE in the last ${M.cap_cycles} cycles before failure`, SH.rmse_last_cycles.toFixed(1) + " cycles", FL.rmse_last_cycles.toFixed(1) + " cycles"),
-    row("APH — failures warned in time", pct(SH.aph, 0), pct(FL.aph, 0), true),
-    row("Aircraft-days lost to late warnings / 100 failures", SH.aircraft_days_lost_per_100_failures.toFixed(0), FL.aircraft_days_lost_per_100_failures.toFixed(0), true),
-    row(`Fleet backtest: sorties lost in 90 days (no prognosis: ${BT.none.sortie_days_lost})`, String(BT.short_horizon.sortie_days_lost), String(BT.flightline.sortie_days_lost), true),
-  ], { x: 0.45, y: 2.82, w: 7.3, colW: [3.3, 2.1, 1.9], fontFace: "Arial", fontSize: 12, rowH: [0.55, 0.42, 0.42, 0.42, 0.42, 0.5], valign: "middle", border: { type: "solid", pt: 0.75, color: HEX.line }, margin: [2, 6, 2, 6], objectName: nm("aph-table") });
-  card(s, 0.45, 5.75, 7.3, 1.05, { fill: "FFFFFF", line: HEX.blue, lw: 1.5 });
   text(s, [
-    { text: "More accurate near failure — and still loses. ", options: { bold: true, color: C.accent1 } },
-    { text: `The capped model cannot see past ${M.cap_cycles} cycles (≈${SH.warns_up_to_days.toFixed(0)} days); most spares take longer than that to arrive. FLIGHTLINE warns at a median ${FL.median_lead_over_window.toFixed(1)}× the decision window.`, options: {} },
-  ], { x: 0.62, y: 5.82, w: 7.0, h: 0.92, fontSize: 13, valign: "middle" });
+    ...sol.flatMap(([h, b]) => [
+      { text: h.toUpperCase(), options: { bold: true, breakLine: true } },
+      { text: b, options: { breakLine: true, paraSpaceAfter: 7 } },
+    ]),
+    { text: "It ranks and prices. It never authorises — the signature stays with the officer.", options: { bold: true, color: C.text2 } },
+  ], { x: cols[1][0] + 0.18, y: Y + 0.68, w: cols[1][1] - 0.34, h: BH - 0.8, fontSize: 13, paraSpaceAfter: 2 });
 
-  const parts = Object.keys(M.per_part).sort((a, b) => M.per_part[a].window_days - M.per_part[b].window_days);
-  const SHORT = { "PN-5520-ADC": "Air data", "PN-3108-GEN": "Generator", "PN-4410-HP": "Hyd. pump", "PN-1904-MLA": "MLG actuator", "PN-2275-FCU": "Fuel control", "PN-6731-RTX": "Radar TX" };
-  const labels = parts.map((p) => `${SHORT[p]} (${M.per_part[p].window_days} d)`);
-  s.addChart(pres.charts.BAR, [
-    { name: "Short-horizon", labels, values: parts.map((p) => Math.round(100 * M.per_part[p].short_horizon)) },
-    { name: "FLIGHTLINE", labels, values: parts.map((p) => Math.round(100 * M.per_part[p].flightline)) },
-  ], {
-    x: 8.0, y: 2.45, w: 4.88, h: 4.35, barDir: "bar", barGapWidthPct: 45,
-    chartColors: [HEX.soft, HEX.blue], showLegend: true, legendPos: "b", legendFontSize: 11, legendFontFace: "+mn-lt",
-    showTitle: true, title: "APH by part (decision window in days)", titleFontSize: 13, titleFontFace: "+mn-lt", titleColor: "000000",
-    showValue: true, dataLabelPosition: "outEnd", dataLabelFontSize: 9, dataLabelFontFace: "+mn-lt", dataLabelColor: "444444", dataLabelFormatCode: '0"%"',
-    valAxisMinVal: 0, valAxisMaxVal: 115, valAxisHidden: true, valGridLine: { style: "none" },
-    catAxisLabelFontSize: 11, catAxisLabelFontFace: "+mn-lt", catAxisLabelColor: "333333", catAxisOrientation: "maxMin",
-    objectName: nm("aph-chart"),
+  head(cols[2], "WHAT IS NEW :");
+  const news = [
+    [`${pct(FL.aph, 0)} vs ${pct(SH.aph, 0)}`, "of failures warned in time to act (APH), against a capped-RUL model with the better RMSE"],
+    [`${signed(fromDown[3])} vs ${signed(fromFlying[3])}`, "cannibalisation priced in aircraft-days: donor already down vs a flying donor"],
+    [pct(N.evaluation.coverage), "interval coverage; when the interval is too wide it says “inspect”, not a guess"],
+    [`${pts(D.gap_b)} pts`, `of lost availability attributed by cause — ${pts(D.attr_b.spares_lead_time)} of them to spares lead time`],
+  ];
+  news.forEach(([big, small], i) => {
+    const y = Y + 0.7 + i * 0.97;
+    text(s, big, { x: cols[2][0] + 0.18, y, w: cols[2][1] - 0.36, h: 0.4, fontSize: 21, bold: true, color: MAG });
+    text(s, small, { x: cols[2][0] + 0.18, y: y + 0.4, w: cols[2][1] - 0.36, h: 0.52, fontSize: 11.5, color: "222222" });
   });
-  s.addNotes(`A model with RMSE 0.9 sounds better than 48.6. But that 0.9 is measured against RUL capped at ${M.cap_cycles} cycles — the convention most C-MAPSS papers use — and a capped model cannot warn earlier than the cap. APH is the share of failures warned early enough to get the spare, the bay and the crew in place. Ours: ${pct(FL.aph, 0)}. Then in a 90-day backtest on true failures, both models drive pre-emptive spares orders: ${BT.short_horizon.sortie_days_lost} sorties lost vs ${BT.flightline.sortie_days_lost}.`);
+  s.addNotes(`The statement does not say the models are inaccurate. It says the data never meets. So we do not compete on accuracy: we join the four silos and optimise the number the Air Force already runs on — operational availability. The capped model has RMSE ${SH.rmse_cycles.toFixed(1)} against ours ${FL.rmse_cycles.toFixed(1)}, and still warns in time for only ${pct(SH.aph, 0)} of failures, because it cannot see past ${M.cap_cycles} cycles and most spares take longer than that to arrive.`);
 }
 
-// ================================================================ 4 · TECHNICAL APPROACH
-pres.addSection({ title: "How it works" });
+// ================================================================ 3 · TECHNICAL APPROACH
+pres.addSection({ title: "Technical approach" });
 {
-  const s = content("How it works");
+  const s = content("Technical approach");
   s.addText("TECHNICAL APPROACH", { placeholder: "title" });
   const T = N.twin;
   const silos = [
@@ -263,11 +226,11 @@ pres.addSection({ title: "How it works" });
     ["2  SIMULATOR", ["90 days, day by day; wear ∝ sorties flown", "Base-stock (S−1, S) spares, FIFO", "Every down-day = one labelled “hold” → exact attribution"]],
     ["3  OPTIMISER", ["OR-Tools CP-SAT: induction day + depot, expedites", "Max sortie-days, then aircraft-days", "2 passes + simulator check; deterministic budget"]],
     ["4  DECISION LAYER", ["Cannibalisation priced over 30 days", "Spare unlock ranking (monotone replay)", "Actions in aircraft-days + causal trace"]],
-    ["5  DELIVERY", ["FastAPI + offline dashboard", "Live what-if, re-solves in ≈1 s", "Printable draft maintenance order"]],
+    ["5  DELIVERY", ["FastAPI + offline dashboard", `Live what-if, re-solves in ≈${(D.ms / 1000).toFixed(1)}\u00a0s`, "Printable draft maintenance order"]],
   ];
   const pw = 2.3, pg = 0.2, py = 3.42, ph = 2.2;
   steps.forEach(([h, lines], i) => {
-    const x = 0.45 + i * (pw + pg) + (i > 0 ? 0 : 0);
+    const x = 0.45 + i * (pw + pg);
     boxed(s, x, py, pw, ph);
     text(s, h, { x: x + 0.12, y: py + 0.1, w: pw - 0.24, h: 0.32, fontSize: 12.5, bold: true, color: C.accent1 });
     text(s, bullets(lines, { gap: 4 }), { x: x + 0.12, y: py + 0.47, w: pw - 0.22, h: ph - 0.55, fontSize: 10.5, color: "222222" });
@@ -279,8 +242,8 @@ pres.addSection({ title: "How it works" });
     ["ML", "scikit-learn HistGradientBoosting · split-conformal"],
     ["OPTIMISATION", "Google OR-Tools CP-SAT"],
     ["GRAPH", "NetworkX"],
-    ["SERVING", "Python · FastAPI · uvicorn · Chart.js (vendored)"],
-    ["ASSURANCE", "77 pytest tests · same seed → same numbers"],
+    ["SERVING", "Python · FastAPI · Tailwind CSS · Chart.js, all bundled"],
+    ["ASSURANCE", `${N.n_tests} pytest tests · same seed → same numbers`],
   ];
   const cw = 12.43 / stack.length;
   card(s, 0.45, 6.07, 12.43, 0.82, { fill: "FFFFFF", line: HEX.line });
@@ -291,170 +254,80 @@ pres.addSection({ title: "How it works" });
   s.addNotes("The twin that matters is of the maintenance system, not the engine. Air-gapped by construction: no cloud call, no LLM, no GPU, one SQLite file. Units: the model predicts RUL in cycles (sorties); it becomes days only when divided by planned utilisation. The headline delta is always simulator vs simulator — never the optimiser's own objective.");
 }
 
-// ================================================================ 5 · CANNIBALISATION
+// ================================================================ 4 · FEASIBILITY AND VIABILITY
+pres.addSection({ title: "Feasibility and viability" });
 {
-  const s = content("How it works");
-  s.addText("CANNIBALISATION, PRICED", { placeholder: "title" });
-  text(s, "What GAO-02-86 found (US Navy + Air Force, FY1996–2000)", { x: 0.45, y: 1.22, w: 4.2, h: 0.5, fontSize: 13, bold: true });
-  const f = (k, v) => [{ text: k, options: { bold: true, color: C.accent1, align: "left" } }, { text: v, options: { color: "222222" } }];
-  s.addTable([
-    f("≈850,000", "cannibalisations reported"),
-    f("≈5.3 million", "additional maintenance hours"),
-    f("≥ 2×", "“at least twice as long as normal repairs”"),
-    f("111 parts", "missing from one aircraft"),
-    f("903–1,756 days", "four cannibalised FA-18s not flown"),
-    f("> 25%", "readiness fell when the Army stopped (1987 test)"),
-  ], { x: 0.45, y: 1.75, w: 4.2, colW: [1.4, 2.8], fontFace: "Arial", fontSize: 11, rowH: 0.44, valign: "middle", border: { type: "solid", pt: 0.75, color: HEX.line }, margin: [2, 5, 2, 5], objectName: nm("gao-table") });
-  text(s, [
-    { text: "Services' own policy: ", options: { bold: true } },
-    { text: "cannibalisations “aggravate the very same supply problems that they are meant to overcome.”", options: { italic: true } },
-    { text: "  Load-bearing and corrosive at once.", options: { bold: true, color: C.accent1 } },
-  ], { x: 0.45, y: 4.95, w: 4.2, h: 1.1, fontSize: 12 });
-  text(s, "Source: GAO-02-86, Military Aircraft: Services Need Strategies to Reduce Cannibalizations, Nov 2001.", { x: 0.45, y: 6.32, w: 4.2, h: 0.5, fontSize: 10, color: HEX.grey });
-
-  const mx = 4.95, mw = 3.8;
-  text(s, "So FLIGHTLINE prices it", { x: mx, y: 1.22, w: mw, h: 0.4, fontSize: 15, bold: true, color: C.accent1 });
-  card(s, mx, 1.68, mw, 1.62, { fill: HEX.tint, line: HEX.tint });
-  text(s, [
-    { text: "net = recipient gain − donor loss − re-failure", options: { bold: true, breakLine: true } },
-    { text: " ", options: { breakLine: true, fontSize: 5 } },
-    { text: "The donor takes the recipient's place in the spares queue: the swap moves the hole, it does not fill it. Swap labour 2× normal (GAO). Moved part loses 20% of remaining life — a modelled assumption, labelled on screen.", options: {} },
-  ], { x: mx + 0.15, y: 1.76, w: mw - 0.3, h: 1.5, fontSize: 11.5 });
-  text(s, "Same radar transmitter for grounded TAIL-02:", { x: mx, y: 3.48, w: mw, h: 0.32, fontSize: 12.5, bold: true });
-  const tail02 = D.cann.filter((c) => c[1] === "TAIL-02");
-  const fromDown = tail02.find((c) => c[4] > 0 && c[4] < 1000);
-  const fromFlying = tail02.find((c) => c[4] === 0);
-  const fromGrounded = G.cann.find((c) => c[1] === "TAIL-02");
-  const rowsC = [
-    [`${fromGrounded[0]} grounded for the horizon`, fromGrounded[3]],
-    [`${fromDown[0]} down ${fromDown[4]} more days anyway`, fromDown[3]],
-    [`${fromFlying[0]} flying today`, fromFlying[3]],
-  ];
-  rowsC.forEach(([k, v], i) => {
-    const y = 3.88 + i * 0.78;
-    card(s, mx, y, mw, 0.66, { fill: "FFFFFF", line: HEX.line });
-    text(s, "Donor " + k, { x: mx + 0.15, y, w: 2.3, h: 0.66, fontSize: 12, valign: "middle" });
-    text(s, (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(v).toFixed(1), { x: mx + 2.4, y, w: 1.25, h: 0.66, fontSize: 24, bold: true, align: "right", valign: "middle", color: v > 0 ? C.accent1 : C.accent3 });
-  });
-  text(s, "aircraft-days over 30 days", { x: mx, y: 6.24, w: mw, h: 0.3, fontSize: 10.5, color: HEX.grey, align: "right" });
-  const ih = img(s, "cann_grounded.png", 9.0, 1.22, 3.88, 1004, 1244, { maxH: 5.2, alt: "FLIGHTLINE cannibalisation card: +1 aircraft in 2 days, +28.0 aircraft-days over 30" });
-  text(s, "Live card in the prototype (TAIL-01 and TAIL-03 grounded)", { x: 9.0, y: 1.22 + ih + 0.06, w: 3.88, h: 0.3, fontSize: 10, color: HEX.grey, align: "right" });
-  s.addNotes("It is both necessary and corrosive, so we do not ban it — we price it. The officer on this panel has signed cannibalisation authorisations; nobody has shown them this number. Robbing a flying aircraft is always net negative: it only moves the hole. Robbing an aircraft that is down anyway can pay handsomely.");
-}
-
-// ================================================================ 6 · ABSTENTION GATE
-{
-  const s = content("How it works");
-  s.addText("THE ABSTENTION GATE", { placeholder: "title" });
-  text(s, "We can tell you when we don't know.", { x: 0.45, y: 1.22, w: 3.75, h: 0.75, fontSize: 19, bold: true, color: C.accent1 });
-  card(s, 0.45, 2.05, 3.75, 1.2, { fill: HEX.tint, line: HEX.tint });
-  text(s, [
-    { text: "Rule", options: { bold: true, breakLine: true } },
-    { text: "Abstain when the 90% interval is wider than the decision window ", options: {} },
-    { text: "and", options: { bold: true } },
-    { text: " its lower edge falls inside it.", options: { breakLine: true } },
-    { text: "→ recommend inspection, not a prediction", options: { italic: true, color: C.accent1 } },
-  ], { x: 0.6, y: 2.13, w: 3.5, h: 1.25, fontSize: 11.5 });
-  const stat = (y, big, small) => {
-    text(s, big, { x: 0.45, y, w: 1.55, h: 0.62, fontSize: 28, bold: true, color: C.accent1, valign: "middle" });
-    text(s, small, { x: 2.05, y, w: 2.15, h: 0.62, fontSize: 11, color: "222222", valign: "middle" });
-  };
-  stat(3.62, pct(N.evaluation.coverage), `coverage on ${N.evaluation.n_test_points.toLocaleString("en-IN")} held-out points (target 90%)`);
-  stat(4.34, pct(N.cov_last20, 0), `coverage in the last 20 cycles before failure (${N.n_last20} points)`);
-  stat(5.06, String(D.counts.inspect), `parts flagged for inspection today; ${D.counts.order_now} confident enough to order; ${D.counts.monitor} monitored`);
-  text(s, "Mondrian conformalised quantile regression: calibrated separately in three bands of predicted RUL, so the guarantee holds near failure, not just on average.", { x: 0.45, y: 5.85, w: 3.75, h: 0.95, fontSize: 11, color: HEX.grey });
-  const ih = img(s, "gate.png", 4.5, 1.22, 8.38, 1, 1, { alt: "Abstention gate: remaining-life intervals against decision windows" });
-  const cy = 1.22 + ih + 0.1;
-  text(s, [
-    { text: "Dark bar ", options: { bold: true } }, { text: "= 90% interval narrow enough to act on: order now.   ", options: {} },
-    { text: "Amber bar ", options: { bold: true, color: C.accent2 } }, { text: "= wider than its decision window (shaded): the model abstains.", options: {} },
-  ], { x: 4.5, y: cy, w: 8.38, h: 0.5, fontSize: 11.5 });
-  const qy = cy + 0.62;
-  card(s, 4.5, qy, 8.38, 6.85 - qy, { fill: "FFFFFF", line: HEX.blue, lw: 1.5 });
-  text(s, "Where a false negative can cost aircrew and a false positive wastes a sortie, a system that knows the limits of its own confidence is worth more than one that is slightly more accurate on average.", { x: 4.68, y: qy + 0.05, w: 8.0, h: 6.85 - qy - 0.1, fontSize: 14, italic: true, valign: "middle", color: C.text2 });
-  s.addNotes("Say this slowly. Conformal prediction gives a distribution-free coverage guarantee: no assumption about the error distribution. A single global correction gave 92% overall but about 80% near failure — exactly the wrong place to be overconfident — so we calibrate per band.");
-}
-
-// ================================================================ 7 · LIVE DEMO
-pres.addSection({ title: "Demo" });
-{
-  const s = content("Demo");
-  s.addText("LIVE DEMO", { placeholder: "title" });
-  const ih = img(s, "dashboard.png", 0.45, 1.22, 7.6, 3200, 2000, { alt: "FLIGHTLINE dashboard: headline Ao and line board" });
-  text(s, `Running prototype · 127.0.0.1:8000 · offline · seed 26249 · re-solves in ≈${(D.ms / 1000).toFixed(1)} s`, { x: 0.45, y: 1.22 + ih + 0.06, w: 7.95, h: 0.28, fontSize: 10.5, color: HEX.grey });
-  text(s, `Ao ${pct(D.ao_b)} → ${pct(D.ao_p)}  ·  +${D.d_ac} aircraft-days  ·  +${D.d_sd} sorties flown  ·  sorties lost ${D.lost_b} → ${D.lost_p}`, { x: 0.45, y: 6.4, w: 8.0, h: 0.45, fontSize: 12.5, bold: true, color: C.text2, valign: "middle" });
-  const x = 8.65, w = 4.23;
-  text(s, "Let the panel break it", { x, y: 1.22, w, h: 0.4, fontSize: 17, bold: true, color: C.accent1 });
-  const moves = [
-    ["“Ground two aircraft at Base A.”", "Click 01 and 03",
-      `Ao falls to ${pct(G.ao_b)}. Top action becomes: cannibalise the radar from grounded TAIL-03 to TAIL-02, +${G.top[0][1].toFixed(1)} aircraft-days.`],
-    ["“Spares convoy is 10 days late.”", "Drag convoy delay to 10",
-      `Spares share of the gap ${pts(D.attr_b.spares_lead_time)} → ${pts(DL.attr_b.spares_lead_time)} pts; order-now parts ${D.counts.order_now} → ${DL.counts.order_now}; priced cannibalisation +${DL.top[0][1].toFixed(0)}.`],
-    ["“Surge: 40% more sorties.”", "Drag sortie surge to +40%",
-      `Sorties lost: ${SU.lost_b} under current practice vs ${SU.lost_p} under the plan (+${SU.d_ac} aircraft-days).`],
-  ];
-  moves.forEach(([say, act, see], i) => {
-    const y = 1.72 + i * 1.62;
-    card(s, x, y, w, 1.48, { fill: HEX.tint, line: HEX.tint });
-    text(s, [{ text: say, options: { bold: true, breakLine: true } }, { text: act, options: { color: C.accent1, bold: true } }], { x: x + 0.15, y: y + 0.08, w: w - 0.3, h: 0.55, fontSize: 12.5 });
-    text(s, see, { x: x + 0.15, y: y + 0.66, w: w - 0.3, h: 0.78, fontSize: 11.5, color: "222222" });
-  });
-  text(s, "Every action carries “Why this number?” — the trace of which silo said what.", { x, y: 6.62, w, h: 0.3, fontSize: 10.5, italic: true, color: HEX.grey });
-  s.addNotes("Do not play a recording. Hand them the controls. Change anything you like — both plans are re-simulated and CP-SAT re-solves in about a second, with the reason printed next to every recommendation. Press Reset before you start.");
-}
-
-// ================================================================ 8 · FEASIBILITY AND VIABILITY
-pres.addSection({ title: "Feasibility and impact" });
-{
-  const s = content("Feasibility and impact");
+  const s = content("Feasibility and viability");
   s.addText("FEASIBILITY AND VIABILITY", { placeholder: "title" });
-  const col = [0.45, 4.7, 8.95], cw = 3.93;
-  const head = (x, t) => text(s, t, { x, y: 1.22, w: cw, h: 0.36, fontSize: 15, bold: true, color: C.accent1 });
-  head(col[0], "HONEST ABOUT DATA");
-  text(s, [
-    ...bullets([
-      "We have no IAF data and do not pretend to. The badge says SYNTHETIC SCENARIO on every screen",
-      "Degradation: 432 run-to-failure units with the shape of NASA N-CMAPSS",
-      "Drop real N-CMAPSS / C-MAPSS files in data/raw and the model retrains on real engines; logistics stay synthetic and the badge says so",
-      "Decisions never see ground truth; it is used only to backtest",
-    ], { gap: 7 }),
-  ], { x: col[0], y: 1.65, w: cw, h: 3.0, fontSize: 12 });
-  head(col[1], "PLATFORM-AGNOSTIC");
-  text(s, "Swap the degradation model; everything above it is unchanged. Fewer labelled failures do not make it unsafe — the interval widens and it warns earlier:", { x: col[1], y: 1.65, w: cw, h: 0.95, fontSize: 12 });
-  const ft = M.fine_tuning;
-  s.addChart(pres.charts.LINE, [{ name: "Warning lead ÷ decision window", labels: ft.map((r) => String(r.labelled_failures)), values: ft.map((r) => +r.median_lead_over_window.toFixed(2)) }], {
-    x: col[1], y: 2.62, w: cw, h: 2.15, chartColors: [HEX.blue], lineSize: 2.5, lineDataSymbol: "circle", lineDataSymbolSize: 7,
-    showLegend: false, showTitle: true, title: "Warning lead ÷ window vs labelled failures", titleFontSize: 11, titleFontFace: "+mn-lt", titleColor: "000000",
-    showValue: true, dataLabelPosition: "t", dataLabelFontSize: 9, dataLabelFontFace: "+mn-lt", dataLabelColor: "444444", dataLabelFormatCode: '0.0"×"',
-    valAxisMinVal: 1, valAxisMaxVal: 3.6, valAxisHidden: true, valGridLine: { style: "none" }, catAxisLabelFontSize: 10, catAxisLabelFontFace: "+mn-lt", catAxisLabelColor: "333333",
-    objectName: nm("finetune-chart"),
-  });
-  text(s, `APH stays ${pct(Math.min(...ft.map((r) => r.aph)), 0)}–${pct(Math.max(...ft.map((r) => r.aph)), 0)} from ${ft[0].labelled_failures} to ${ft[ft.length - 1].labelled_failures} labelled failures. More data buys efficiency, not safety.`, { x: col[1], y: 4.8, w: cw, h: 0.62, fontSize: 11, color: "222222" });
-  head(col[2], "RISKS → MITIGATIONS");
-  const r = (a, b) => [{ text: a, options: { bold: true, color: "222222" } }, { text: b, options: { color: "333333" } }];
-  s.addTable([
-    r("Model ≠ real fleet", "Decision layer is model-agnostic; conformal recalibrates on a small held-out set"),
-    r("Classified data", "Air-gapped on one base server; no cloud, no external API"),
-    r("Trust", "Ranks and prices, never authorises; every number traceable"),
-    r("Optimiser approximations", "Every plan re-scored by the full simulator"),
-  ], { x: col[2], y: 1.65, w: cw, colW: [1.45, 2.48], fontFace: "Arial", fontSize: 10.5, valign: "middle", rowH: 0.78, border: { type: "solid", pt: 0.75, color: HEX.line }, margin: [2, 5, 2, 5], objectName: nm("risk-table") });
-  card(s, 0.45, 5.5, 12.43, 1.38, { fill: HEX.tint, line: HEX.tint });
-  text(s, "RESEARCH AND REFERENCES", { x: 0.6, y: 5.56, w: 6, h: 0.28, fontSize: 11.5, bold: true, color: C.accent1 });
+  // left: the working prototype
+  const lx = 0.45, lw = 4.15, top = 1.22, bot = 6.87;
+  boxed(s, lx, top, lw, bot - top);
+  text(s, "TECHNICALLY FEASIBLE", { x: lx + 0.15, y: top + 0.1, w: lw - 0.3, h: 0.38, fontSize: 17, bold: true, color: C.accent1 });
+  text(s, "Built, running and tested — offline", { x: lx + 0.15, y: top + 0.47, w: lw - 0.3, h: 0.28, fontSize: 11.5, bold: true, color: C.text2 });
+  const ih = img(s, "dashboard.png", lx + 0.15, top + 0.82, lw - 0.3, 0, 0, { alt: "FLIGHTLINE prototype: overview and line board" });
   text(s, bullets([
-    "Arias Chao M. et al., Aircraft engine run-to-failure dataset under real flight conditions (N-CMAPSS), Data 6(1):5, 2021 · Saxena A. et al., C-MAPSS, PHM 2008",
-    "Romano Y., Patterson E., Candès E., Conformalized Quantile Regression, NeurIPS 2019",
-    "US GAO, GAO-02-86, Military Aircraft: Services Need Strategies to Reduce Cannibalizations, 2001 · Sherbrooke C., METRIC, Operations Research 16(1), 1968",
-    "Google OR-Tools CP-SAT solver · scikit-learn HistGradientBoostingRegressor · NetworkX",
-  ], { gap: 1 }), { x: 0.6, y: 5.84, w: 12.15, h: 1.0, fontSize: 10, color: "222222" });
-  s.addNotes("Volunteer the weakness before the panel finds it. Our claim is not that this model transfers to a Su-30. Our claim is that the decision layer is platform-agnostic: the twin, the simulator, the attribution, the optimiser, the cannibalisation price and the abstention gate are unchanged when the degradation model is swapped.");
+    "Runs on one laptop: Python + SQLite; no GPU, no internet",
+    `Both 90-day plans re-simulated and re-solved in ≈${(D.ms / 1000).toFixed(1)}\u00a0s`,
+    `${N.n_tests} automated tests; same seed → same numbers`,
+    "Real N-CMAPSS / C-MAPSS files in data/raw → retrains on real engines",
+    "2-minute demo film recorded from the running prototype",
+  ], { gap: 3 }), { x: lx + 0.15, y: top + 0.92 + ih, w: lw - 0.25, h: bot - top - 1.0 - ih, fontSize: 11, color: "222222" });
+
+  // right: challenges → mitigations, in the template's two pointers
+  const rx = 4.8, rw = 12.88 - 4.8;
+  const th = (t) => ({ text: t, options: { bold: true, color: "FFFFFF", fill: { color: HEX.blue }, fontSize: 13 } });
+  const rr = (a, b) => [{ text: a, options: { bold: true, color: "000000" } }, { text: b, options: { color: "222222" } }];
+  s.addTable([
+    [th("KEY CHALLENGES"), th("MITIGATION")],
+    rr("No IAF data", "“SYNTHETIC SCENARIO” badge on every screen; decisions never see ground truth — it is used only to backtest"),
+    rr("Model trained on another platform", "The decision layer is platform-agnostic: swap the degradation model and the twin, simulator and optimiser are unchanged"),
+    rr("Overconfidence near failure", `Conformal intervals calibrated per RUL band: ${pct(N.cov_last20, 0)} coverage in the last 20 cycles; abstains → inspect`),
+    rr("Classified data", "Air-gapped: one base server, one SQLite file; no cloud, no LLM, no external API"),
+    rr("Trust in automated advice", "Ranks and prices, never authorises; every number has a trace; every plan re-scored by the full simulator"),
+  ], { x: rx, y: top, w: rw, colW: [2.45, rw - 2.45], fontFace: "Arial", fontSize: 11, rowH: [0.4, 0.55, 0.55, 0.55, 0.55, 0.55], valign: "middle", border: { type: "solid", pt: 1, color: "000000" }, margin: [3, 7, 3, 7], objectName: nm("risk-table") });
+
+  // bottom right: viability with few labelled failures
+  const by = 4.72, bh = bot - by;
+  const ft = M.fine_tuning;
+  card(s, rx, by, rw, bh, { fill: HEX.tint, line: HEX.tint });
+  s.addChart(pres.charts.LINE, [{ name: "Warning lead ÷ decision window", labels: ft.map((r) => String(r.labelled_failures)), values: ft.map((r) => +r.median_lead_over_window.toFixed(2)) }], {
+    x: rx + 0.1, y: by + 0.05, w: 4.1, h: bh - 0.1, chartColors: [HEX.blue], lineSize: 2.5, lineDataSymbol: "circle", lineDataSymbolSize: 7,
+    showLegend: false, showTitle: true, title: "Warning lead ÷ window vs labelled failures", titleFontSize: 10.5, titleFontFace: "+mn-lt", titleColor: "000000",
+    showValue: true, dataLabelPosition: "t", dataLabelFontSize: 9, dataLabelFontFace: "+mn-lt", dataLabelColor: "444444", dataLabelFormatCode: '0.0"×"',
+    valAxisMinVal: 1, valAxisMaxVal: 3.8, valAxisHidden: true, valGridLine: { style: "none" }, catAxisLabelFontSize: 9.5, catAxisLabelFontFace: "+mn-lt", catAxisLabelColor: "333333",
+    plotArea: { fill: { color: HEX.tint } }, objectName: nm("finetune-chart"),
+  });
+  text(s, [
+    { text: "VIABLE WITH LITTLE DATA", options: { bold: true, color: C.accent1, breakLine: true } },
+    { text: `APH stays ${pct(Math.min(...ft.map((r) => r.aph)), 0)}–${pct(Math.max(...ft.map((r) => r.aph)), 0)} from ${ft[0].labelled_failures} to ${ft[ft.length - 1].labelled_failures} labelled failures. With fewer failures the interval widens and it warns earlier, not later.`, options: { breakLine: true } },
+    { text: "More data buys efficiency, not safety.", options: { bold: true } },
+  ], { x: rx + 4.35, y: by + 0.12, w: rw - 4.5, h: bh - 0.24, fontSize: 12, valign: "middle", color: "222222" });
+  s.addNotes("Volunteer the weakness before the panel finds it. We have no IAF data and do not pretend to. Our claim is not that this model transfers to a Su-30. Our claim is that the decision layer is platform-agnostic: the twin, the simulator, the attribution, the optimiser, the cannibalisation price and the abstention gate are unchanged when the degradation model is swapped.");
 }
 
-// ================================================================ 9 · AVAILABILITY ATTRIBUTION
+// ================================================================ 5 · IMPACT AND BENEFITS
+pres.addSection({ title: "Impact and benefits" });
 {
-  const s = content("Feasibility and impact");
-  s.addText("AVAILABILITY ATTRIBUTION", { placeholder: "title" });
-  text(s, `Why is availability ${pct(D.ao_b)} and not ${pct(D.ceil_b)}?`, { x: 0.45, y: 1.2, w: 12.43, h: 0.45, fontSize: 19, bold: true, color: C.accent1 });
-  img(s, "waterfall_baseline.png", 0.45, 1.75, 6.2, 1, 1, { alt: "Attribution waterfall under current practice" });
+  const s = content("Impact and benefits");
+  s.addText("IMPACT AND BENEFITS", { placeholder: "title" });
+  const stats = [
+    ["+" + D.d_ac, `aircraft-days in 90 days on a 24-aircraft fleet (Ao ${pct(D.ao_b)} → ${pct(D.ao_p)}), same aircraft, parts and bays`],
+    [D.lost_b + " → " + D.lost_p, "tasked sorties lost to unavailability, current practice → plan"],
+    [D.queue_b.toFixed(1) + " → " + D.queue_p.toFixed(1), "mean days an inspection waits for a depot bay"],
+    [`${BT.short_horizon.sortie_days_lost} → ${BT.flightline.sortie_days_lost}`, `sorties lost in a 90-day backtest on true failures, capped model → FLIGHTLINE (no prognosis: ${BT.none.sortie_days_lost})`],
+  ];
+  const sw = 2.93, sg = 0.237;
+  stats.forEach(([big, small], i) => {
+    const x = 0.45 + i * (sw + sg);
+    card(s, x, 1.22, sw, 1.45, { fill: HEX.tint, line: HEX.tint });
+    text(s, big, { x: x + 0.15, y: 1.27, w: sw - 0.3, h: 0.62, fontSize: 30, bold: true, color: C.accent1, valign: "middle" });
+    text(s, small, { x: x + 0.15, y: 1.9, w: sw - 0.3, h: 0.74, fontSize: 10.5, color: "222222" });
+  });
+
+  // attribution: why Ao is what it is
+  const ay = 2.85, ah = 2.3;
+  boxed(s, 0.45, ay, 6.1, ah);
+  text(s, `Why is availability ${pct(D.ao_b)} and not ${pct(D.ceil_b)}?`, { x: 0.6, y: ay + 0.08, w: 5.8, h: 0.34, fontSize: 14, bold: true, color: C.accent1 });
   const a = D.attr_b, ad = D.attr_days_b;
   const items = [
     ["Waiting for spares", a.spares_lead_time, ad.spares_lead_time],
@@ -462,66 +335,123 @@ pres.addSection({ title: "Feasibility and impact" });
     ["Unscheduled removal", a.unscheduled_removal, ad.unscheduled_removal],
     ["Cannibalisation cascade", a.cannibalisation_cascade, ad.cannibalisation_cascade],
   ];
-  const rx = 6.95, rw = 5.93;
+  const hc = (t, al) => ({ text: t, options: { bold: true, color: "FFFFFF", fill: { color: HEX.navy }, align: al } });
   s.addTable([
-    [{ text: "Cause", options: { bold: true, color: "FFFFFF", fill: { color: HEX.navy } } }, { text: "Points of Ao", options: { bold: true, color: "FFFFFF", fill: { color: HEX.navy }, align: "right" } }, { text: "Aircraft-days", options: { bold: true, color: "FFFFFF", fill: { color: HEX.navy }, align: "right" } }],
+    [hc("Cause", "left"), hc("Ao points", "right"), hc("Aircraft-days", "right")],
     ...items.map(([k, v, d]) => [{ text: k }, { text: pts(v), options: { align: "right", bold: true } }, { text: String(d), options: { align: "right", color: "444444" } }]),
-    [{ text: "Total gap below the ceiling", options: { bold: true } }, { text: pts(D.gap_b), options: { align: "right", bold: true, color: C.accent1 } }, { text: String(items.reduce((t, x) => t + x[2], 0)), options: { align: "right", bold: true } }],
-  ], { x: rx, y: 1.75, w: rw, colW: [3.13, 1.4, 1.4], fontFace: "Arial", fontSize: 13, rowH: 0.42, valign: "middle", border: { type: "solid", pt: 0.5, color: HEX.line }, margin: [2, 8, 2, 8], objectName: nm("attr-table") });
-  card(s, rx, 4.48, rw, 1.25, { fill: HEX.tint, line: HEX.tint });
-  text(s, "Every grounded aircraft-day is counted once, under its highest-priority reason, so the causes add up to the gap exactly. It is a unit-tested invariant, not a chart.", { x: rx + 0.18, y: 4.52, w: rw - 0.36, h: 1.17, fontSize: 13.5, valign: "middle" });
-  text(s, "This is the screen a Base Maintenance Officer opens at 0700.", { x: rx, y: 5.95, w: rw, h: 0.6, fontSize: 17, bold: true, color: C.text2, valign: "middle" });
-  s.addNotes(`Under current practice the fleet loses ${pts(D.gap_b)} points of availability below its inspection-only ceiling of ${pct(D.ceil_b)}: ${pts(a.spares_lead_time)} to spares lead time, ${pts(a.depot_contention)} to depot contention, ${pts(a.unscheduled_removal)} to unscheduled removals, ${pts(a.cannibalisation_cascade)} to cannibalisation cascades. Nobody else is doing lost-availability attribution.`);
-}
+    [{ text: "Gap below the ceiling", options: { bold: true } }, { text: pts(D.gap_b), options: { align: "right", bold: true, color: C.accent1 } }, { text: String(items.reduce((t, x) => t + x[2], 0)), options: { align: "right", bold: true } }],
+  ], { x: 0.6, y: ay + 0.48, w: 5.8, colW: [3.0, 1.3, 1.5], fontFace: "Arial", fontSize: 11.5, rowH: 0.29, valign: "middle", border: { type: "solid", pt: 0.5, color: HEX.line }, margin: [1, 7, 1, 7], objectName: nm("attr-table") });
 
-// ================================================================ 10 · IMPACT AND BENEFITS
-{
-  const s = content("Feasibility and impact");
-  s.addText("IMPACT AND BENEFITS", { placeholder: "title" });
-  const stats = [
-    ["+" + D.d_ac, "aircraft-days in 90 days on a 24-aircraft fleet (+" + D.d_ao.toFixed(1) + " pts Ao), same aircraft, parts and bays"],
-    [D.lost_b + " → " + D.lost_p, "tasked sorties lost to unavailability, current practice → plan"],
-    [D.queue_b.toFixed(1) + " → " + D.queue_p.toFixed(1), "mean days an inspection waits for a depot bay"],
-    [pct(FL.aph, 0), "of failures warned in time to act (capped-RMSE model: " + pct(SH.aph, 0) + ")"],
+  // stress tests the panel can run live
+  const sx = 6.78, swd = 6.1;
+  boxed(s, sx, ay, swd, ah);
+  text(s, "Stress-tested live — each re-solves in about a second", { x: sx + 0.15, y: ay + 0.08, w: swd - 0.3, h: 0.34, fontSize: 14, bold: true, color: C.accent1 });
+  const moves = [
+    ["Ground TAIL-01 and TAIL-03", `Ao ${pct(G.ao_b)}; new top action: cannibalise the radar from grounded TAIL-03 to TAIL-02, +${G.top[0][1].toFixed(0)} aircraft-days`],
+    ["Spares convoy 10 days late", `Spares share of the gap ${pts(D.attr_b.spares_lead_time)} → ${pts(DL.attr_b.spares_lead_time)} pts; order-now parts ${D.counts.order_now} → ${DL.counts.order_now}`],
+    ["Surge: 40% more sorties", `Sorties lost ${SU.lost_b} under current practice vs ${SU.lost_p} under the plan (+${SU.d_ac} aircraft-days)`],
   ];
-  const sw = 2.93, sg = 0.237;
-  stats.forEach(([big, small], i) => {
-    const x = 0.45 + i * (sw + sg);
-    card(s, x, 1.25, sw, 1.75, { fill: HEX.tint, line: HEX.tint });
-    text(s, big, { x: x + 0.15, y: 1.32, w: sw - 0.3, h: 0.78, fontSize: 34, bold: true, color: C.accent1, valign: "middle" });
-    text(s, small, { x: x + 0.15, y: 2.1, w: sw - 0.3, h: 0.85, fontSize: 11.5, color: "222222" });
+  moves.forEach(([say, see], i) => {
+    const y = ay + 0.5 + i * 0.6;
+    text(s, [{ text: say, options: { bold: true, breakLine: true } }, { text: see, options: { color: "333333" } }], { x: sx + 0.15, y, w: swd - 0.3, h: 0.58, fontSize: 10.5 });
   });
+
+  // who benefits, and how it is deployed
   const who = [
     ["BASE MAINTENANCE OFFICER", ["Why availability is what it is, by cause", "Which depot induction to move, and when"]],
-    ["LOGISTICS OFFICER", ["Which spare, stocked where, unlocks the most", "Which order to expedite, with its aircraft-days"]],
-    ["ENGINEERING OFFICER", ["Cannibalisation priced before it is signed", "Inspect-or-order, with the model's own uncertainty"]],
+    ["LOGISTICS OFFICER", ["Which spare, stocked where, unlocks the most", "Which order to expedite"]],
+    ["ENGINEERING OFFICER", ["Cannibalisation priced before it is signed", "Inspect or order, with the model's own doubt"]],
   ];
-  const ww = 4.0, wg = 0.215;
+  const wy = 5.33, wh = 6.87 - 5.33, ww = 2.93, wg = 0.237;
   who.forEach(([h, lines], i) => {
     const x = 0.45 + i * (ww + wg);
-    boxed(s, x, 3.25, ww, 1.5);
-    text(s, h, { x: x + 0.15, y: 3.33, w: ww - 0.3, h: 0.32, fontSize: 12.5, bold: true, color: C.accent1 });
-    text(s, bullets(lines, { gap: 4 }), { x: x + 0.15, y: 3.7, w: ww - 0.3, h: 1.1, fontSize: 12.5 });
+    boxed(s, x, wy, ww, wh);
+    text(s, h, { x: x + 0.13, y: wy + 0.08, w: ww - 0.26, h: 0.3, fontSize: 11, bold: true, color: C.accent1 });
+    text(s, bullets(lines, { gap: 3 }), { x: x + 0.13, y: wy + 0.44, w: ww - 0.2, h: wh - 0.5, fontSize: 11.5 });
   });
-  card(s, 0.45, 5.0, 6.1, 1.88, { fill: HEX.navy, line: HEX.navy });
+  const dx = 0.45 + 3 * (ww + wg);
+  card(s, dx, wy, ww, wh, { fill: HEX.navy, line: HEX.navy });
   text(s, [
-    { text: "DEPLOYMENT", options: { bold: true, breakLine: true } },
-    { text: "Air-gapped by construction: one base server, one SQLite file, open-source stack. No cloud call, no LLM, no GPU, no foreign dependency. Nothing leaves the base network.", options: {} },
-  ], { x: 0.62, y: 5.16, w: 5.8, h: 1.65, fontSize: 13, color: "FFFFFF", valign: "middle" });
-  card(s, 6.78, 5.0, 6.1, 1.88, { fill: "FFFFFF", line: HEX.blue, lw: 1.5 });
-  text(s, [
-    { text: "WHAT WE NEED NEXT", options: { bold: true, color: C.accent1, breakLine: true } },
-    ...bullets([
-      "Labelled removals for one LRU family",
-      "Lead-time history and stock levels by base",
-      "Bay counts and phase intervals for one type; cannibalisation logs",
-    ], { gap: 2 }),
-  ], { x: 6.95, y: 5.16, w: 5.8, h: 1.65, fontSize: 12.5, valign: "middle" });
-  s.addNotes("Aircraft-days recovered from the same aircraft, parts and bays — by joining the data, not by buying anything. Air-gapped by construction: nothing leaves the base network. The numbers are from the synthetic scenario; the first step with real data is one LRU family at one base.");
+    { text: "AIR-GAPPED DEPLOYMENT", options: { bold: true, fontSize: 11, breakLine: true } },
+    { text: "One base server, one SQLite file, open-source stack. Nothing leaves the base network.", options: {} },
+  ], { x: dx + 0.13, y: wy + 0.08, w: ww - 0.26, h: wh - 0.16, fontSize: 11.5, color: "FFFFFF", valign: "top", paraSpaceAfter: 4 });
+  s.addNotes(`Aircraft-days recovered from the same aircraft, parts and bays — by joining the data, not by buying anything. Every grounded aircraft-day is counted once under its highest-priority reason, so the causes add up to the gap exactly; that is a unit-tested invariant. The numbers are from the synthetic scenario; the first step with real data is one LRU family at one base.`);
+}
+
+// ================================================================ 6 · RESEARCH AND REFERENCES
+pres.addSection({ title: "Research and references" });
+{
+  const s = content("Research and references");
+  s.addText("RESEARCH AND REFERENCES", { placeholder: "title" });
+  const refs = [
+    ["Degradation data", [
+      "Arias Chao M. et al. Aircraft engine run-to-failure dataset under real flight conditions (N-CMAPSS). Data 6(1):5, 2021",
+      "Saxena A. et al. Damage propagation modeling for aircraft engine run-to-failure simulation (C-MAPSS). PHM 2008",
+    ], "Shape of our synthetic degradation; the loader retrains on the real files"],
+    ["Conformal prediction", [
+      "Romano Y., Patterson E., Candès E. Conformalized quantile regression. NeurIPS 2019",
+      "Vovk V., Gammerman A., Shafer G. Algorithmic Learning in a Random World. Springer, 2005",
+    ], "90% remaining-life interval, calibrated per band (Mondrian); the abstention gate"],
+    ["Cannibalisation evidence", [
+      "US GAO. GAO-02-86, Military Aircraft: Services Need Strategies to Reduce Cannibalizations. Nov 2001",
+      "≈850,000 cannibalisations and ≈5.3 million extra hours, FY1996–2000; at least twice the labour of a normal repair",
+    ], "Swap labour priced at 2×; every swap scored before it is signed"],
+    ["Spares and optimisation", [
+      "Sherbrooke C. METRIC: a multi-echelon technique for recoverable item control. Operations Research 16(1), 1968",
+      "Google OR-Tools CP-SAT · scikit-learn HistGradientBoosting · NetworkX",
+    ], "Base-stock (S−1, S) spares; induction scheduling and expedites"],
+  ];
+  const cw = 2.95, cg = 0.21, cy = 1.22, ch = 3.7;
+  refs.forEach(([h, cites, use], i) => {
+    const x = 0.45 + i * (cw + cg);
+    boxed(s, x, cy, cw, ch);
+    s.addText(String(i + 1), { shape: pres.shapes.RECTANGLE, x, y: cy, w: 0.42, h: 0.42, fill: { color: HEX.blue }, line: { color: HEX.blue, width: 0 }, fontFace: "Arial", fontSize: 15, bold: true, color: "FFFFFF", align: "center", valign: "middle", margin: 0, objectName: nm("ref-num") });
+    text(s, h, { x: x + 0.52, y: cy + 0.06, w: cw - 0.62, h: 0.32, fontSize: 13, bold: true, color: C.accent1, valign: "middle" });
+    text(s, bullets(cites, { gap: 6 }), { x: x + 0.14, y: cy + 0.55, w: cw - 0.24, h: 2.15, fontSize: 11.5, color: "222222" });
+    card(s, x + 0.12, cy + ch - 0.92, cw - 0.24, 0.8, { fill: HEX.tint, line: HEX.tint });
+    text(s, [{ text: "Used for: ", options: { bold: true } }, { text: use }], { x: x + 0.22, y: cy + ch - 0.9, w: cw - 0.44, h: 0.76, fontSize: 10.5, color: C.text2, valign: "middle" });
+  });
+
+  // pilot and validation plan
+  const py = 5.12, ph = 6.87 - 5.12;
+  boxed(s, 0.45, py, 12.43, ph);
+  s.addText("OUR PILOT AND VALIDATION PLAN", { shape: pres.shapes.RECTANGLE, x: 4.67, y: py - 0.17, w: 4.0, h: 0.34, fill: { color: HEX.blue }, line: { color: HEX.blue, width: 0 }, fontFace: "Arial", fontSize: 12, bold: true, color: "FFFFFF", align: "center", valign: "middle", margin: 0, objectName: nm("plan-tag") });
+  const plan = [
+    ["Data", "One LRU family: removals, lead times, stock by base, bay counts, cannibalisation logs"],
+    ["Retrain", "Degradation model on real removals; recalibrate the conformal intervals"],
+    ["Shadow mode", "90 days at one base; officers keep deciding, FLIGHTLINE only advises"],
+    ["Measure", "APH and aircraft-days against what actually happened"],
+    ["Expand", "More LRU families, then more bases and types"],
+  ];
+  const pw = 2.2, pgap = (12.43 - 0.3 - plan.length * pw) / (plan.length - 1);
+  plan.forEach(([h, b], i) => {
+    const x = 0.6 + i * (pw + pgap);
+    text(s, [{ text: h, options: { bold: true, color: C.accent1, breakLine: true } }, { text: b, options: { color: "222222" } }], { x, y: py + 0.3, w: pw, h: ph - 0.4, fontSize: 11.5, valign: "middle" });
+    if (i < plan.length - 1) arrowRight(s, x + pw + (pgap - 0.2) / 2, py + ph / 2 - 0.05, 0.2);
+  });
+  s.addNotes("Every reference here is used in the build, not decoration. The GAO report is the evidence the panel will recognise: cannibalisation is necessary and corrosive, so we price it. The pilot needs one LRU family at one base for 90 days in shadow mode — officers keep deciding, FLIGHTLINE only advises, and we measure APH and aircraft-days against what actually happened.");
+}
+
+// pptxgenjs 3.12 writes an <a:pPr> before every run of a multi-run paragraph; only the first is
+// legal (it must precede the runs). The extras make PowerPoint offer a repair and LibreOffice drop bullets.
+async function dropStrayParagraphProps(file) {
+  const JSZip = require("jszip");
+  const zip = await JSZip.loadAsync(fs.readFileSync(file));
+  const stray = /(<\/a:r>|<a:br\/>)<a:pPr\b[^>]*?(?:\/>|>[\s\S]*?<\/a:pPr>)/g;
+  let n = 0;
+  for (const name of Object.keys(zip.files).filter((f) => /^ppt\/slides\/slide\d+\.xml$/.test(f))) {
+    const xml = await zip.file(name).async("string");
+    let fixed = xml, prev;
+    do { prev = fixed; fixed = fixed.replace(stray, (m, end) => (n++, end)); } while (fixed !== prev);
+    if (fixed !== xml) zip.file(name, fixed);
+  }
+  fs.writeFileSync(file, await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" }));
+  return n;
 }
 
 (async () => {
   await pres.writeFile({ fileName: OUT });
+  console.log("dropped", await dropStrayParagraphProps(OUT), "stray paragraph properties");
   await applyTheme(OUT, THEME);
   console.log("wrote", OUT);
 })();

@@ -16,5 +16,7 @@ _,_,out['surge']=scen(sortie_surge=40)
 engine.run(engine.normalise())
 m=ctx.model; X,y,_=m.eval_rows(ctx.deg.split('test'),13); p,lo,hi=m.predict_rows(X); s=y<=20
 out['cov_last20']=float(np.mean((y[s]>=lo[s])&(y[s]<=hi[s]))); out['n_last20']=int(s.sum()); out['n_test_units']=len(ctx.deg.split('test'))
+import subprocess, sys
+out['n_tests']=subprocess.run([sys.executable,'-m','pytest','--collect-only','-q'],capture_output=True,text=True,cwd=engine.config.ROOT).stdout.count('::')
 json.dump(out, open('numbers.json','w'), indent=1, default=float)
 d=out['default']; print('ao', d['ao_b'], d['ao_p'], 'ms', d['ms'])
