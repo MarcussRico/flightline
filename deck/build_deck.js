@@ -69,7 +69,12 @@ function card(slide, x, y, w, h, o = {}) {
 function boxed(slide, x, y, w, h) { // the template's heavy black frame
   slide.addShape(pres.shapes.RECTANGLE, { x, y, w, h, fill: { color: "FFFFFF" }, line: { color: "000000", width: 2.25 }, objectName: nm("frame") });
 }
-function img(slide, file, x, y, w, pxw, pxh, o = {}) {
+function pngSize(file) {
+  const b = fs.readFileSync(SHOT(file));
+  return [b.readUInt32BE(16), b.readUInt32BE(20)];
+}
+function img(slide, file, x, y, w, _pxw, _pxh, o = {}) {
+  const [pxw, pxh] = pngSize(file);  // always the file's own size, so a re-shot screenshot keeps its aspect
   const h = w * pxh / pxw;
   slide.addImage({ path: SHOT(file), x, y, w, h, objectName: nm("shot"), altText: o.alt || file });
   if (o.frame !== false) slide.addShape(pres.shapes.RECTANGLE, { x, y, w, h, fill: { type: "none" }, line: { color: "9AA6B1", width: 0.75 }, objectName: nm("shot-frame") });
@@ -348,13 +353,15 @@ pres.addSection({ title: "How it works" });
   stat(4.34, pct(N.cov_last20, 0), `coverage in the last 20 cycles before failure (${N.n_last20} points)`);
   stat(5.06, String(D.counts.inspect), `parts flagged for inspection today; ${D.counts.order_now} confident enough to order; ${D.counts.monitor} monitored`);
   text(s, "Mondrian conformalised quantile regression: calibrated separately in three bands of predicted RUL, so the guarantee holds near failure, not just on average.", { x: 0.45, y: 5.85, w: 3.75, h: 0.95, fontSize: 11, color: HEX.grey });
-  const ih = img(s, "gate.png", 4.5, 1.22, 8.38, 2544, 1014, { alt: "Abstention gate: remaining-life intervals against decision windows" });
+  const ih = img(s, "gate.png", 4.5, 1.22, 8.38, 1, 1, { alt: "Abstention gate: remaining-life intervals against decision windows" });
+  const cy = 1.22 + ih + 0.1;
   text(s, [
-    { text: "Grey bar ", options: { bold: true } }, { text: "= 90% interval narrow enough to act on: order now.   ", options: {} },
+    { text: "Dark bar ", options: { bold: true } }, { text: "= 90% interval narrow enough to act on: order now.   ", options: {} },
     { text: "Amber bar ", options: { bold: true, color: C.accent2 } }, { text: "= wider than its decision window (shaded): the model abstains.", options: {} },
-  ], { x: 4.5, y: 1.22 + ih + 0.12, w: 8.38, h: 0.5, fontSize: 11.5 });
-  card(s, 4.5, 5.35, 8.38, 1.45, { fill: "FFFFFF", line: HEX.blue, lw: 1.5 });
-  text(s, "Where a false negative can cost aircrew and a false positive wastes a sortie, a system that knows the limits of its own confidence is worth more than one that is slightly more accurate on average.", { x: 4.68, y: 5.42, w: 8.0, h: 1.3, fontSize: 15, italic: true, valign: "middle", color: C.text2 });
+  ], { x: 4.5, y: cy, w: 8.38, h: 0.5, fontSize: 11.5 });
+  const qy = cy + 0.62;
+  card(s, 4.5, qy, 8.38, 6.85 - qy, { fill: "FFFFFF", line: HEX.blue, lw: 1.5 });
+  text(s, "Where a false negative can cost aircrew and a false positive wastes a sortie, a system that knows the limits of its own confidence is worth more than one that is slightly more accurate on average.", { x: 4.68, y: qy + 0.05, w: 8.0, h: 6.85 - qy - 0.1, fontSize: 14, italic: true, valign: "middle", color: C.text2 });
   s.addNotes("Say this slowly. Conformal prediction gives a distribution-free coverage guarantee: no assumption about the error distribution. A single global correction gave 92% overall but about 80% near failure — exactly the wrong place to be overconfident — so we calibrate per band.");
 }
 
@@ -437,9 +444,7 @@ pres.addSection({ title: "Feasibility and impact" });
   const s = content("Feasibility and impact");
   s.addText("AVAILABILITY ATTRIBUTION", { placeholder: "title" });
   text(s, `Why is availability ${pct(D.ao_b)} and not ${pct(D.ceil_b)}?`, { x: 0.45, y: 1.2, w: 12.43, h: 0.45, fontSize: 19, bold: true, color: C.accent1 });
-  const wh = img(s, "waterfall_baseline.png", 0.45, 1.75, 5.1, 1254, 820, { alt: "Attribution waterfall, current practice" });
-  const bh = img(s, "board_baseline.png", 5.8, 1.75, 7.08, 2544, 1298, { alt: "Line board: every aircraft, every day, coloured by reason" });
-  text(s, "Line board: 24 aircraft × 90 days, each day on the ground coloured by its reason (current practice)", { x: 5.8, y: 1.75 + bh + 0.06, w: 7.08, h: 0.3, fontSize: 10, color: HEX.grey });
+  img(s, "waterfall_baseline.png", 0.45, 1.75, 6.2, 1, 1, { alt: "Attribution waterfall under current practice" });
   const a = D.attr_b, ad = D.attr_days_b;
   const items = [
     ["Waiting for spares", a.spares_lead_time, ad.spares_lead_time],
@@ -447,16 +452,15 @@ pres.addSection({ title: "Feasibility and impact" });
     ["Unscheduled removal", a.unscheduled_removal, ad.unscheduled_removal],
     ["Cannibalisation cascade", a.cannibalisation_cascade, ad.cannibalisation_cascade],
   ];
-  const tY = 1.75 + wh + 0.18;
+  const rx = 6.95, rw = 5.93;
   s.addTable([
-    ...items.map(([k, v, d]) => [{ text: k }, { text: pts(v) + " pts", options: { align: "right", bold: true } }, { text: d + " aircraft-days", options: { align: "right", color: "444444" } }]),
-    [{ text: "Total availability gap", options: { bold: true } }, { text: pts(D.gap_b) + " pts", options: { align: "right", bold: true, color: C.accent1 } }, { text: items.reduce((t, x) => t + x[2], 0) + " aircraft-days", options: { align: "right", bold: true } }],
-  ], { x: 0.45, y: tY, w: 5.1, colW: [2.3, 1.1, 1.7], fontFace: "Arial", fontSize: 11.5, rowH: 0.3, valign: "middle", border: { type: "solid", pt: 0.5, color: HEX.line }, margin: [1, 5, 1, 5], objectName: nm("attr-table") });
-  card(s, 5.8, 5.6, 7.08, 1.28, { fill: HEX.tint, line: HEX.tint });
-  text(s, [
-    { text: "Every grounded aircraft-day is counted once, under its highest-priority reason, so the causes add up to the gap exactly — a unit-tested invariant, not a chart. ", options: {} },
-    { text: "This is the screen a Base Maintenance Officer opens at 0700.", options: { bold: true, color: C.text2 } },
-  ], { x: 5.98, y: 5.66, w: 6.75, h: 1.16, fontSize: 12.5, valign: "middle" });
+    [{ text: "Cause", options: { bold: true, color: "FFFFFF", fill: { color: HEX.navy } } }, { text: "Points of Ao", options: { bold: true, color: "FFFFFF", fill: { color: HEX.navy }, align: "right" } }, { text: "Aircraft-days", options: { bold: true, color: "FFFFFF", fill: { color: HEX.navy }, align: "right" } }],
+    ...items.map(([k, v, d]) => [{ text: k }, { text: pts(v), options: { align: "right", bold: true } }, { text: String(d), options: { align: "right", color: "444444" } }]),
+    [{ text: "Total gap below the ceiling", options: { bold: true } }, { text: pts(D.gap_b), options: { align: "right", bold: true, color: C.accent1 } }, { text: String(items.reduce((t, x) => t + x[2], 0)), options: { align: "right", bold: true } }],
+  ], { x: rx, y: 1.75, w: rw, colW: [3.13, 1.4, 1.4], fontFace: "Arial", fontSize: 13, rowH: 0.42, valign: "middle", border: { type: "solid", pt: 0.5, color: HEX.line }, margin: [2, 8, 2, 8], objectName: nm("attr-table") });
+  card(s, rx, 4.48, rw, 1.25, { fill: HEX.tint, line: HEX.tint });
+  text(s, "Every grounded aircraft-day is counted once, under its highest-priority reason, so the causes add up to the gap exactly. It is a unit-tested invariant, not a chart.", { x: rx + 0.18, y: 4.52, w: rw - 0.36, h: 1.17, fontSize: 13.5, valign: "middle" });
+  text(s, "This is the screen a Base Maintenance Officer opens at 0700.", { x: rx, y: 5.95, w: rw, h: 0.6, fontSize: 17, bold: true, color: C.text2, valign: "middle" });
   s.addNotes(`Under current practice the fleet loses ${pts(D.gap_b)} points of availability below its inspection-only ceiling of ${pct(D.ceil_b)}: ${pts(a.spares_lead_time)} to spares lead time, ${pts(a.depot_contention)} to depot contention, ${pts(a.unscheduled_removal)} to unscheduled removals, ${pts(a.cannibalisation_cascade)} to cannibalisation cascades. Nobody else is doing lost-availability attribution.`);
 }
 
