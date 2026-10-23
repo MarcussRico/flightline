@@ -35,6 +35,9 @@ Open **http://127.0.0.1:8000**. Then run `pytest` (77 tests, ~13 s).
 - **Deterministic.** Seed 26249 always gives the same numbers, including the optimiser
   (CP-SAT runs on a deterministic work budget, not a wall-clock limit).
 - **Fast.** Server cold start ≈ 2 s. A scenario re-solves in ≈ 0.9–1.3 s on an M-series Mac.
+  On battery with macOS Low Power Mode it takes ≈ 1.8 s (≈ 2.9 s for the heaviest test case), and
+  `test_scenario_resolves_in_under_two_seconds` fails. Plug in before a demo. The numbers do not
+  change, because CP-SAT stops on a work budget, not a clock.
 - Tested on Python 3.14.6. Every pinned wheel was checked to exist for Python 3.11 as well.
 - OR-Tools installed in 17 s here, so the CP-SAT optimiser is live. If it ever fails to
   import, `scheduler.py` falls back to the greedy schedule and the UI says
@@ -53,6 +56,16 @@ Open **http://127.0.0.1:8000**. Then run `pytest` (77 tests, ~13 s).
 
 Every recommendation has a **Why this number** trace naming which silo said what and how the
 number was valued. **Print maintenance order** produces a one-page draft order with every trace.
+
+### Deck, demo film and portal text
+
+| What | Where | Rebuild |
+|---|---|---|
+| Six-slide SIH idea deck (+ PDF) | `deck/FLIGHTLINE_SIH26249.pptx` | `dump_numbers.py` writes `numbers.json` from the engine; `shoot.mjs` takes the screenshots; `node build_deck.js` (pptxgenjs 3.12) builds the deck. |
+| Two-minute demo film | `demo/FLIGHTLINE_demo.mp4` (not in git) | With the app running: `node direct.mjs` (Playwright) records it, `python assemble.py` encodes it with ffmpeg. |
+| SIH portal fields | `docs/SIH_SUBMISSION.md` | Title, technology bucket, abstract and description, with character counts. |
+
+All three read their numbers from the engine at seed 26249. Rebuild them if the scenario changes.
 
 ---
 
